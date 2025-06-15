@@ -288,7 +288,7 @@ const StudentDashboard = () => {
             <p className="text-muted-foreground">Your academic performance and rating analytics</p>
           </div>
           <div className="flex gap-2">
-            <Button onClick={() => navigate("/student-rate")} className="flex items-center gap-2">
+            <Button onClick={() => navigate("/student-dashboard/rate")} className="flex items-center gap-2">
               <Star className="w-4 h-4" />
               Rate Faculty
             </Button>
@@ -385,7 +385,7 @@ const StudentDashboard = () => {
               <div className="text-center">
                 <h3 className="text-lg font-semibold mb-2">No Rating History</h3>
                 <p className="text-muted-foreground mb-4">You haven't submitted any faculty ratings yet.</p>
-                <Button onClick={() => navigate("/student-rate")}>
+                <Button onClick={() => navigate("/student-dashboard/rate")}>
                   Rate Your First Faculty
                 </Button>
               </div>
