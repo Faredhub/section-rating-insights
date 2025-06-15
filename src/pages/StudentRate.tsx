@@ -3,7 +3,6 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,8 +35,6 @@ const StudentRate = () => {
     Object.fromEntries(CREDENTIALS.map(c => [c.key, 3]))
   );
   const [feedback, setFeedback] = useState("");
-  const [hodRemarks, setHodRemarks] = useState("");
-  const [hosRemarks, setHosRemarks] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -79,15 +76,46 @@ const StudentRate = () => {
     }
   }, [faculty_assignment_id]);
 
+  // Check if the student has already rated this faculty
+  useEffect(() => {
+    const checkExistingRating = async () => {
+      if (user && faculty_assignment_id) {
+        const { data } = await supabase
+          .from("faculty_credentials_ratings")
+          .select("*")
+          .eq("faculty_assignment_id", faculty_assignment_id)
+          .eq("student_id", user.id)
+          .single();
+
+        if (data) {
+          // Pre-fill the form with existing ratings
+          setValues({
+            engagement: data.engagement,
+            concept_understanding: data.concept_understanding,
+            content_spread_depth: data.content_spread_depth,
+            application_oriented_teaching: data.application_oriented_teaching,
+            pedagogy_techniques_tools: data.pedagogy_techniques_tools,
+            communication_skills: data.communication_skills,
+            class_decorum: data.class_decorum,
+            teaching_aids: data.teaching_aids
+          });
+          setFeedback(data.feedback || "");
+        }
+      }
+    };
+
+    checkExistingRating();
+  }, [user, faculty_assignment_id]);
+
   // Star rating component
   const StarRating = ({ value, onChange }: { value: number; onChange: (rating: number) => void }) => {
     return (
-      <div className="flex gap-1">
+      <div className="flex gap-1 items-center">
         {[1, 2, 3, 4, 5].map((star) => (
           <Star
             key={star}
             className={`w-6 h-6 cursor-pointer transition-colors ${
-              star <= value ? "fill-yellow-400 text-yellow-400" : "text-gray-300"
+              star <= value ? "fill-yellow-400 text-yellow-400" : "text-gray-300 hover:text-yellow-200"
             }`}
             onClick={() => onChange(star)}
           />
@@ -126,8 +154,16 @@ const StudentRate = () => {
 
     if (error) {
       setErrorMsg(error.message);
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
     } else {
-      toast({ title: "Rating submitted successfully!" });
+      toast({ 
+        title: "Rating submitted successfully!",
+        description: "Your feedback has been saved."
+      });
       navigate("/student-dashboard");
     }
   };
@@ -218,33 +254,13 @@ const StudentRate = () => {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">
-                    Feedback and Suggestions of the official/authority conducting the inspection:
+                    Feedback and Suggestions:
                   </label>
                   <Textarea
                     value={feedback}
                     onChange={(e) => setFeedback(e.target.value)}
                     placeholder="Provide your detailed feedback about the faculty's teaching performance..."
                     className="min-h-[100px]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">HOD Remarks:</label>
-                  <Textarea
-                    value={hodRemarks}
-                    onChange={(e) => setHodRemarks(e.target.value)}
-                    placeholder="HOD can add remarks here (optional)"
-                    className="min-h-[80px]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">HOS Remarks:</label>
-                  <Textarea
-                    value={hosRemarks}
-                    onChange={(e) => setHosRemarks(e.target.value)}
-                    placeholder="HOS can add remarks here (optional)"
-                    className="min-h-[80px]"
                   />
                 </div>
               </div>
