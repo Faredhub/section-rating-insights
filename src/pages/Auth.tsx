@@ -62,7 +62,7 @@ const AuthPage = () => {
       <div className="absolute top-4 right-4">
         <Button 
           variant="outline" 
-          onClick={() => navigate("/dashboard")}
+          onClick={() => navigate("/admin-dashboard")}
           className="bg-blue-600 text-white hover:bg-blue-700"
         >
           Admin Dashboard
