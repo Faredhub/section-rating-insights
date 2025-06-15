@@ -3,59 +3,50 @@ import React, { useEffect, useState } from "react";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader } from "lucide-react";
+import { Loader, LogOut, User } from "lucide-react";
 
-interface Year {
+interface StudentProfile {
   id: string;
   name: string;
-}
-interface Semester {
-  id: string;
-  name: string;
+  registration_number: string;
   year_id: string;
-}
-interface Section {
-  id: string;
-  name: string;
   semester_id: string;
+  section_id: string;
+  years: { name: string };
+  semesters: { name: string };
+  sections: { name: string };
 }
+
 interface Subject {
   id: string;
   name: string;
-  section_id: string;
 }
-interface FacultyPerson {
-  id: string;
-  name: string;
-  email: string;
-  department: string;
-  position: string;
-}
+
 interface FacultyAssignment {
   id: string;
-  faculty_id: string;
-  subject_id: string;
-  section_id: string;
-  faculty: FacultyPerson;
+  faculty: {
+    id: string;
+    name: string;
+    email: string;
+    department: string;
+    position: string;
+  };
+  subjects: {
+    name: string;
+  };
 }
 
 const StudentDashboard = () => {
   const { user, loading } = useSupabaseAuth();
   const navigate = useNavigate();
 
-  const [year, setYear] = useState<Year | null>(null);
-  const [semester, setSemester] = useState<Semester | null>(null);
-  const [section, setSection] = useState<Section | null>(null);
-  const [subject, setSubject] = useState<Subject | null>(null);
-
-  const [years, setYears] = useState<Year[]>([]);
-  const [semesters, setSemesters] = useState<Semester[]>([]);
-  const [sections, setSections] = useState<Section[]>([]);
+  const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [facultyAssignments, setFacultyAssignments] = useState<FacultyAssignment[]>([]);
-  const [facultyLoading, setFacultyLoading] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [loadingFaculty, setLoadingFaculty] = useState(false);
 
   // Guard: login required
   useEffect(() => {
@@ -64,100 +55,70 @@ const StudentDashboard = () => {
     }
   }, [user, loading, navigate]);
 
-  // Fetch Years
+  // Fetch student profile
   useEffect(() => {
-    supabase
-      .from("years")
-      .select("*")
-      .then(({ data }) => setYears(data ?? []));
-  }, []);
+    const fetchProfile = async () => {
+      if (user) {
+        const { data } = await supabase
+          .from("student_profiles")
+          .select(`
+            *,
+            years(name),
+            semesters(name),
+            sections(name)
+          `)
+          .eq("user_id", user.id)
+          .single();
 
-  // Fetch Semesters when year selected
-  useEffect(() => {
-    if (year) {
-      supabase
-        .from("semesters")
-        .select("*")
-        .eq("year_id", year.id)
-        .then(({ data }) => setSemesters(data ?? []));
-      setSemester(null);
-      setSection(null);
-      setSubject(null);
-      setSections([]);
-      setSubjects([]);
-      setFacultyAssignments([]);
-    }
-  }, [year]);
-
-  // Fetch Sections when semester selected
-  useEffect(() => {
-    if (semester) {
-      supabase
-        .from("sections")
-        .select("*")
-        .eq("semester_id", semester.id)
-        .then(({ data }) => setSections(data ?? []));
-      setSection(null);
-      setSubject(null);
-      setSubjects([]);
-      setFacultyAssignments([]);
-    }
-  }, [semester]);
-
-  // Fetch Subjects when section selected
-  useEffect(() => {
-    if (section) {
-      supabase
-        .from("subjects")
-        .select("*")
-        .eq("section_id", section.id)
-        .then(({ data }) => setSubjects(data ?? []));
-      setSubject(null);
-      setFacultyAssignments([]);
-    }
-  }, [section]);
-
-  // Fetch Faculty Assignments when subject selected
-  useEffect(() => {
-    const fetchFacultyAssignments = async () => {
-      if (subject && section) {
-        setFacultyLoading(true);
-        // Query for all faculty assigned to this subject and section
-        const { data: assignments, error } = await supabase
-          .from("faculty_assignments")
-          .select(
-            "id, faculty_id, subject_id, section_id, faculty(id, name, email, department, position)"
-          )
-          .eq("subject_id", subject.id)
-          .eq("section_id", section.id);
-
-        setFacultyAssignments(assignments ?? []);
-        setFacultyLoading(false);
+        if (data) {
+          setStudentProfile(data);
+          fetchSubjectsAndFaculty(data.section_id);
+        }
+        setLoadingProfile(false);
       }
     };
-    fetchFacultyAssignments();
-  }, [subject, section]);
 
-  // Handlers for selection
-  const handleSelectYear = (id: string) => {
-    const y = years.find((yy) => yy.id === id) ?? null;
-    setYear(y);
+    fetchProfile();
+  }, [user]);
+
+  const fetchSubjectsAndFaculty = async (sectionId: string) => {
+    setLoadingFaculty(true);
+
+    // Fetch subjects for this section
+    const { data: subjectsData } = await supabase
+      .from("subjects")
+      .select("*")
+      .eq("section_id", sectionId);
+
+    setSubjects(subjectsData || []);
+
+    // Fetch faculty assignments for this section
+    const { data: facultyData } = await supabase
+      .from("faculty_assignments")
+      .select(`
+        id,
+        faculty(id, name, email, department, position),
+        subjects(name)
+      `)
+      .eq("section_id", sectionId);
+
+    setFacultyAssignments(facultyData || []);
+    setLoadingFaculty(false);
   };
-  const handleSelectSemester = (id: string) => {
-    const sem = semesters.find((ss) => ss.id === id) ?? null;
-    setSemester(sem);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/auth");
   };
-  const handleSelectSection = (id: string) => {
-    const sec = sections.find((s) => s.id === id) ?? null;
-    setSection(sec);
-  };
-  const handleSelectSubject = (id: string) => {
-    const subj = subjects.find((s) => s.id === id) ?? null;
-    setSubject(subj);
+
+  const handleRateFaculty = (facultyAssignment: FacultyAssignment) => {
+    navigate(
+      `/student-dashboard/rate?faculty_assignment_id=${facultyAssignment.id}&subject_name=${encodeURIComponent(facultyAssignment.subjects.name)}&faculty_name=${encodeURIComponent(facultyAssignment.faculty.name)}`
+    );
   };
 
   // Guard: loading state
-  if (loading || !user) {
+  if (loading || loadingProfile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader className="w-6 h-6 animate-spin mr-2 text-muted-foreground" />
@@ -166,101 +127,123 @@ const StudentDashboard = () => {
     );
   }
 
-  // Sequential Selection UI
+  if (!studentProfile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Card className="p-6 text-center">
+          <p className="text-muted-foreground">Student profile not found. Please contact administration.</p>
+          <Button onClick={handleLogout} className="mt-4">
+            Logout
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-background px-4 py-8 flex flex-col items-center">
-      <div className="w-full max-w-lg space-y-8">
-        {/* Step 1: Year */}
-        <Card className="p-4">
-          <div className="font-semibold mb-2">Select Year</div>
-          <div className="flex gap-2 flex-wrap">
-            {years.map((y) => (
-              <Button key={y.id} onClick={() => handleSelectYear(y.id)} variant={year?.id === y.id ? "default" : "outline"}>
-                {y.name}
-              </Button>
-            ))}
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <User className="w-8 h-8 text-blue-600" />
+                <div>
+                  <h1 className="text-2xl font-bold">Student Dashboard</h1>
+                  <p className="text-sm text-muted-foreground">Faculty Rating System</p>
+                </div>
+              </div>
+            </div>
+            <Button onClick={handleLogout} variant="outline" className="flex items-center gap-2">
+              <LogOut className="w-4 h-4" />
+              Logout
+            </Button>
           </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Student Information Card */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="w-5 h-5" />
+              Student Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Name</label>
+                <p className="text-lg font-semibold">{studentProfile.name}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Registration Number</label>
+                <p className="text-lg font-semibold">{studentProfile.registration_number}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Year</label>
+                <p className="text-lg font-semibold">{studentProfile.years.name}</p>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-muted-foreground">Semester & Section</label>
+                <p className="text-lg font-semibold">{studentProfile.semesters.name} - {studentProfile.sections.name}</p>
+              </div>
+            </div>
+          </CardContent>
         </Card>
 
-        {/* Step 2: Semester */}
-        {year && (
-          <Card className="p-4">
-            <div className="font-semibold mb-2">Select Semester</div>
-            <div className="flex gap-2 flex-wrap">
-              {semesters.length === 0 && <span className="text-xs text-muted-foreground">No semesters found for this year.</span>}
-              {semesters.map((s) => (
-                <Button key={s.id} onClick={() => handleSelectSemester(s.id)} variant={semester?.id === s.id ? "default" : "outline"}>
-                  {s.name}
-                </Button>
-              ))}
-            </div>
-          </Card>
-        )}
-
-        {/* Step 3: Section */}
-        {semester && (
-          <Card className="p-4">
-            <div className="font-semibold mb-2">Select Section</div>
-            <div className="flex gap-2 flex-wrap">
-              {sections.length === 0 && <span className="text-xs text-muted-foreground">No sections found for this semester.</span>}
-              {sections.map((sec) => (
-                <Button key={sec.id} onClick={() => handleSelectSection(sec.id)} variant={section?.id === sec.id ? "default" : "outline"}>
-                  {sec.name}
-                </Button>
-              ))}
-            </div>
-          </Card>
-        )}
-
-        {/* Step 4: Subject */}
-        {section && (
-          <Card className="p-4">
-            <div className="font-semibold mb-2">Select Subject</div>
-            <div className="flex gap-2 flex-wrap">
-              {subjects.length === 0 && <span className="text-xs text-muted-foreground">No subjects found for this section.</span>}
-              {subjects.map((sub) => (
-                <Button key={sub.id} onClick={() => handleSelectSubject(sub.id)} variant={subject?.id === sub.id ? "default" : "outline"}>
-                  {sub.name}
-                </Button>
-              ))}
-            </div>
-          </Card>
-        )}
-
-        {/* Step 5: Faculty */}
-        {subject && (
-          <Card className="p-4">
-            <div className="font-semibold mb-2">Faculty for this Subject/Section</div>
-            {facultyLoading ? (
-              <div className="flex items-center gap-2"><Loader className="w-4 h-4 animate-spin" /> Loading faculty...</div>
+        {/* Faculty and Subjects */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Rate Your Faculty</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Click on a faculty member to provide your rating and feedback
+            </p>
+          </CardHeader>
+          <CardContent>
+            {loadingFaculty ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader className="w-6 h-6 animate-spin mr-2" />
+                <span>Loading faculty information...</span>
+              </div>
+            ) : facultyAssignments.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No faculty assignments found for your section.</p>
+              </div>
             ) : (
-              <>
-                {facultyAssignments.length === 0 && (
-                  <span className="text-xs text-muted-foreground">No faculty assigned to this subject/section.</span>
-                )}
-                <div className="flex flex-col gap-3">
-                  {facultyAssignments.map((fa) => (
-                    <Card key={fa.id} className="p-3 flex flex-col gap-1">
-                      <div className="font-medium">{fa.faculty.name}</div>
-                      <div className="text-xs text-muted-foreground">{fa.faculty.email}</div>
-                      <Button
-                        variant="secondary"
-                        className="mt-2 w-max"
-                        onClick={() =>
-                          navigate(
-                            `/student-dashboard/rate?faculty_assignment_id=${fa.id}&subject_name=${encodeURIComponent(subject.name)}&faculty_name=${encodeURIComponent(fa.faculty.name)}`
-                          )
-                        }
-                      >
-                        Rate {fa.faculty.name}
-                      </Button>
-                    </Card>
-                  ))}
-                </div>
-              </>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {facultyAssignments.map((assignment) => (
+                  <Card key={assignment.id} className="hover:shadow-md transition-shadow cursor-pointer">
+                    <CardContent className="p-4">
+                      <div className="space-y-3">
+                        <div>
+                          <h3 className="font-semibold text-lg">{assignment.faculty.name}</h3>
+                          <p className="text-sm text-muted-foreground">{assignment.faculty.position}</p>
+                          <p className="text-sm text-muted-foreground">{assignment.faculty.department}</p>
+                        </div>
+                        
+                        <div>
+                          <p className="text-sm font-medium">Subject:</p>
+                          <p className="text-sm text-blue-600">{assignment.subjects.name}</p>
+                        </div>
+
+                        <Button 
+                          onClick={() => handleRateFaculty(assignment)}
+                          className="w-full"
+                          size="sm"
+                        >
+                          Rate Faculty
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             )}
-          </Card>
-        )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

@@ -204,6 +204,27 @@ export type Database = {
           },
         ]
       }
+      registration_numbers: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_used: boolean | null
+          registration_number: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_used?: boolean | null
+          registration_number: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_used?: boolean | null
+          registration_number?: string
+        }
+        Relationships: []
+      }
       sections: {
         Row: {
           id: string
@@ -249,6 +270,64 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "semesters_year_id_fkey"
+            columns: ["year_id"]
+            isOneToOne: false
+            referencedRelation: "years"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      student_profiles: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          registration_number: string
+          section_id: string
+          semester_id: string
+          updated_at: string | null
+          user_id: string
+          year_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          registration_number: string
+          section_id: string
+          semester_id: string
+          updated_at?: string | null
+          user_id: string
+          year_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          registration_number?: string
+          section_id?: string
+          semester_id?: string
+          updated_at?: string | null
+          user_id?: string
+          year_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_profiles_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_profiles_semester_id_fkey"
+            columns: ["semester_id"]
+            isOneToOne: false
+            referencedRelation: "semesters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_profiles_year_id_fkey"
             columns: ["year_id"]
             isOneToOne: false
             referencedRelation: "years"
