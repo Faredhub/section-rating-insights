@@ -1,28 +1,20 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+import React from "react";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+const Index = () => (
+  <div className="min-h-screen flex items-center justify-center bg-background">
+    <div className="max-w-md w-full mx-auto bg-white dark:bg-zinc-900 p-8 border rounded-lg shadow flex flex-col items-center gap-6">
+      <h1 className="text-3xl font-bold text-center">Welcome to the Faculty Ratings App</h1>
+      <p className="text-center text-muted-foreground">
+        Login or sign up to start rating your faculty and view ratings!
+      </p>
+      <Button asChild size="lg">
+        <Link to="/auth">Login / Sign Up</Link>
+      </Button>
+    </div>
+  </div>
 );
 
-export default App;
-
+export default Index;
