@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Star, BookOpen, TrendingUp, LogOut, Eye } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
+import { Users, Star, BookOpen, TrendingUp, LogOut, Eye, Award, Target, BarChart3 } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ComposedChart, Area, AreaChart } from "recharts";
 import FacultyPerformanceDetail from "@/components/FacultyPerformanceDetail";
 
 interface FacultyRating {
@@ -26,10 +26,27 @@ interface FacultyRating {
   overall_average: number;
 }
 
+interface PerformanceTrend {
+  month: string;
+  totalRatings: number;
+  avgRating: number;
+}
+
+interface DepartmentInsight {
+  department: string;
+  facultyCount: number;
+  totalRatings: number;
+  avgRating: number;
+  topPerformer: string;
+  improvementNeeded: number;
+}
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [facultyRatings, setFacultyRatings] = useState<FacultyRating[]>([]);
+  const [performanceTrends, setPerformanceTrends] = useState<PerformanceTrend[]>([]);
+  const [departmentInsights, setDepartmentInsights] = useState<DepartmentInsight[]>([]);
   const [totalStudents, setTotalStudents] = useState(0);
   const [totalFaculty, setTotalFaculty] = useState(0);
   const [totalRatings, setTotalRatings] = useState(0);
@@ -57,6 +74,7 @@ const AdminDashboard = () => {
             communication_skills,
             class_decorum,
             teaching_aids,
+            created_at,
             faculty_assignments!inner (
               faculty!inner (id, name, department, position)
             )
@@ -137,6 +155,88 @@ const AdminDashboard = () => {
         console.log("Processed faculty ratings:", processedFacultyRatings);
         setFacultyRatings(processedFacultyRatings);
 
+        // Process performance trends (monthly)
+        const trendMap = new Map<string, { total: number; count: number; sum: number }>();
+        ratingsData?.forEach((rating) => {
+          const month = new Date(rating.created_at).toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short' 
+          });
+          
+          const avgRating = (
+            rating.engagement + rating.concept_understanding + rating.content_spread_depth +
+            rating.application_oriented_teaching + rating.pedagogy_techniques_tools +
+            rating.communication_skills + rating.class_decorum + rating.teaching_aids
+          ) / 8;
+
+          if (!trendMap.has(month)) {
+            trendMap.set(month, { total: 0, count: 0, sum: 0 });
+          }
+          
+          const trend = trendMap.get(month)!;
+          trend.total += 1;
+          trend.count += 1;
+          trend.sum += avgRating;
+        });
+
+        const trends: PerformanceTrend[] = Array.from(trendMap.entries())
+          .map(([month, data]) => ({
+            month,
+            totalRatings: data.total,
+            avgRating: data.sum / data.count
+          }))
+          .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime());
+
+        setPerformanceTrends(trends);
+
+        // Process department insights
+        const deptMap = new Map<string, {
+          facultyIds: Set<string>;
+          totalRatings: number;
+          totalScore: number;
+          facultyScores: { [key: string]: { name: string; score: number; ratings: number } };
+        }>();
+
+        processedFacultyRatings.forEach((faculty) => {
+          if (!deptMap.has(faculty.department)) {
+            deptMap.set(faculty.department, {
+              facultyIds: new Set(),
+              totalRatings: 0,
+              totalScore: 0,
+              facultyScores: {}
+            });
+          }
+          
+          const dept = deptMap.get(faculty.department)!;
+          dept.facultyIds.add(faculty.faculty_id);
+          dept.totalRatings += faculty.total_ratings;
+          dept.totalScore += faculty.overall_average * faculty.total_ratings;
+          dept.facultyScores[faculty.faculty_id] = {
+            name: faculty.faculty_name,
+            score: faculty.overall_average,
+            ratings: faculty.total_ratings
+          };
+        });
+
+        const insights: DepartmentInsight[] = Array.from(deptMap.entries()).map(([department, data]) => {
+          const avgRating = data.totalRatings > 0 ? data.totalScore / data.totalRatings : 0;
+          const facultyScores = Object.values(data.facultyScores);
+          const topPerformer = facultyScores.reduce((max, faculty) => 
+            faculty.score > max.score ? faculty : max, facultyScores[0]);
+          const improvementNeeded = facultyScores.filter(f => f.score < 3.5).length;
+
+          return {
+            department,
+            facultyCount: data.facultyIds.size,
+            totalRatings: data.totalRatings,
+            avgRating,
+            topPerformer: topPerformer?.name || 'N/A',
+            improvementNeeded
+          };
+        });
+
+        setDepartmentInsights(insights);
+
         // Get basic stats
         console.log("Fetching basic stats...");
         const { count: facultyCount } = await supabase
@@ -147,25 +247,23 @@ const AdminDashboard = () => {
           .from("faculty_credentials_ratings")
           .select("*", { count: "exact", head: true });
 
-        console.log("Faculty count:", facultyCount, "Ratings count:", ratingsCount);
+        const { count: studentsCount } = await supabase
+          .from("student_profiles")
+          .select("*", { count: "exact", head: true });
+
+        console.log("Faculty count:", facultyCount, "Ratings count:", ratingsCount, "Students count:", studentsCount);
 
         setTotalFaculty(facultyCount || 0);
         setTotalRatings(ratingsCount || 0);
-        setTotalStudents(50); // Sample number since we don't have student tracking
+        setTotalStudents(studentsCount || 0);
 
       } catch (error) {
         console.error("Error fetching analytics:", error);
         toast({
           title: "Error",
-          description: "Failed to fetch analytics data. Using demo data instead.",
+          description: "Failed to fetch analytics data.",
           variant: "destructive"
         });
-        
-        // Set demo data if there's an error
-        setFacultyRatings([]);
-        setTotalFaculty(0);
-        setTotalRatings(0);
-        setTotalStudents(0);
       } finally {
         console.log("Finished loading data");
         setLoadingData(false);
@@ -216,23 +314,29 @@ const AdminDashboard = () => {
     overall: faculty.overall_average,
     engagement: faculty.avg_engagement,
     communication: faculty.avg_communication_skills,
-    pedagogy: faculty.avg_pedagogy_techniques_tools
+    pedagogy: faculty.avg_pedagogy_techniques_tools,
+    ratings: faculty.total_ratings
   }));
 
-  const departmentData = facultyRatings.reduce((acc, faculty) => {
-    const dept = faculty.department;
-    if (!acc[dept]) {
-      acc[dept] = { department: dept, count: 0, avgRating: 0, totalRating: 0 };
-    }
-    acc[dept].count += 1;
-    acc[dept].totalRating += faculty.overall_average;
-    acc[dept].avgRating = acc[dept].totalRating / acc[dept].count;
-    return acc;
-  }, {} as { [key: string]: { department: string; count: number; avgRating: number; totalRating: number } });
+  const criteriaComparisonData = [
+    { criteria: 'Engagement', average: facultyRatings.length > 0 ? facultyRatings.reduce((sum, f) => sum + f.avg_engagement, 0) / facultyRatings.length : 0 },
+    { criteria: 'Understanding', average: facultyRatings.length > 0 ? facultyRatings.reduce((sum, f) => sum + f.avg_concept_understanding, 0) / facultyRatings.length : 0 },
+    { criteria: 'Content Depth', average: facultyRatings.length > 0 ? facultyRatings.reduce((sum, f) => sum + f.avg_content_spread_depth, 0) / facultyRatings.length : 0 },
+    { criteria: 'Application', average: facultyRatings.length > 0 ? facultyRatings.reduce((sum, f) => sum + f.avg_application_oriented_teaching, 0) / facultyRatings.length : 0 },
+    { criteria: 'Pedagogy', average: facultyRatings.length > 0 ? facultyRatings.reduce((sum, f) => sum + f.avg_pedagogy_techniques_tools, 0) / facultyRatings.length : 0 },
+    { criteria: 'Communication', average: facultyRatings.length > 0 ? facultyRatings.reduce((sum, f) => sum + f.avg_communication_skills, 0) / facultyRatings.length : 0 },
+    { criteria: 'Decorum', average: facultyRatings.length > 0 ? facultyRatings.reduce((sum, f) => sum + f.avg_class_decorum, 0) / facultyRatings.length : 0 },
+    { criteria: 'Teaching Aids', average: facultyRatings.length > 0 ? facultyRatings.reduce((sum, f) => sum + f.avg_teaching_aids, 0) / facultyRatings.length : 0 }
+  ];
 
-  const departmentChartData = Object.values(departmentData);
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D', '#FFC658', '#FF7C7C'];
 
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
+  const overallAverage = facultyRatings.length > 0 
+    ? facultyRatings.reduce((sum, f) => sum + f.overall_average, 0) / facultyRatings.length 
+    : 0;
+
+  const excellentPerformers = facultyRatings.filter(f => f.overall_average >= 4.5).length;
+  const needsImprovement = facultyRatings.filter(f => f.overall_average < 3.5).length;
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -241,7 +345,7 @@ const AdminDashboard = () => {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-            <p className="text-muted-foreground">Faculty Rating System Analytics</p>
+            <p className="text-muted-foreground">Faculty Rating System Analytics & Insights</p>
           </div>
           <div className="flex gap-2">
             <Button onClick={() => navigate("/auth")} variant="outline">
@@ -254,8 +358,8 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {/* Enhanced Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Students</CardTitle>
@@ -295,13 +399,46 @@ const AdminDashboard = () => {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {facultyRatings.length > 0 
-                  ? (facultyRatings.reduce((sum, f) => sum + f.overall_average, 0) / facultyRatings.length).toFixed(1)
-                  : '0.0'
-                }
-              </div>
+              <div className="text-2xl font-bold">{overallAverage.toFixed(1)}</div>
               <p className="text-xs text-muted-foreground">Out of 5.0</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Performance Insights Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Excellent Performers</CardTitle>
+              <Award className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">{excellentPerformers}</div>
+              <p className="text-xs text-muted-foreground">Faculty with 4.5+ rating</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Needs Improvement</CardTitle>
+              <Target className="h-4 w-4 text-red-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">{needsImprovement}</div>
+              <p className="text-xs text-muted-foreground">Faculty below 3.5 rating</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Response Rate</CardTitle>
+              <BarChart3 className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">
+                {totalStudents > 0 ? Math.round((totalRatings / totalStudents) * 100) : 0}%
+              </div>
+              <p className="text-xs text-muted-foreground">Student participation</p>
             </CardContent>
           </Card>
         </div>
@@ -317,92 +454,137 @@ const AdminDashboard = () => {
           </Card>
         ) : (
           <>
-            {/* Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Faculty Performance Chart */}
+            {/* Performance Trends */}
+            {performanceTrends.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Faculty Performance Overview</CardTitle>
-                  <CardDescription>Overall ratings by faculty member</CardDescription>
+                  <CardTitle>Performance Trends Over Time</CardTitle>
+                  <CardDescription>Monthly rating trends and participation</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={facultyPerformanceData}>
+                    <ComposedChart data={performanceTrends}>
                       <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis domain={[0, 5]} />
+                      <XAxis dataKey="month" />
+                      <YAxis yAxisId="left" domain={[0, 5]} />
+                      <YAxis yAxisId="right" orientation="right" />
                       <Tooltip />
                       <Legend />
-                      <Bar dataKey="overall" fill="#8884d8" name="Overall Rating" />
-                    </BarChart>
+                      <Area yAxisId="left" type="monotone" dataKey="avgRating" fill="#8884d8" fillOpacity={0.3} />
+                      <Line yAxisId="left" type="monotone" dataKey="avgRating" stroke="#8884d8" strokeWidth={2} name="Avg Rating" />
+                      <Bar yAxisId="right" dataKey="totalRatings" fill="#82ca9d" name="Total Ratings" />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Charts Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Faculty Performance Overview */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Faculty Performance Overview</CardTitle>
+                  <CardDescription>Overall ratings and participation by faculty</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={350}>
+                    <ComposedChart data={facultyPerformanceData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis yAxisId="left" domain={[0, 5]} />
+                      <YAxis yAxisId="right" orientation="right" />
+                      <Tooltip />
+                      <Legend />
+                      <Bar yAxisId="right" dataKey="ratings" fill="#E3F2FD" name="Total Ratings" />
+                      <Line yAxisId="left" type="monotone" dataKey="overall" stroke="#8884d8" strokeWidth={2} name="Overall Rating" />
+                    </ComposedChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
 
-              {/* Department Performance */}
+              {/* Criteria Performance Radar */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Department Performance</CardTitle>
-                  <CardDescription>Average ratings by department</CardDescription>
+                  <CardTitle>Criteria Performance Analysis</CardTitle>
+                  <CardDescription>Average performance across all evaluation criteria</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {departmentChartData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={300}>
-                      <PieChart>
-                        <Pie
-                          data={departmentChartData}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ department, avgRating }) => `${department}: ${avgRating.toFixed(1)}`}
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="avgRating"
-                        >
-                          {departmentChartData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="flex items-center justify-center h-64">
-                      <p className="text-muted-foreground">No department data available</p>
-                    </div>
-                  )}
+                  <ResponsiveContainer width="100%" height={350}>
+                    <BarChart data={criteriaComparisonData} layout="horizontal">
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" domain={[0, 5]} />
+                      <YAxis dataKey="criteria" type="category" width={80} />
+                      <Tooltip formatter={(value: any) => [value?.toFixed(2), "Average Score"]} />
+                      <Bar dataKey="average" fill="#8884d8" />
+                    </BarChart>
+                  </ResponsiveContainer>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Detailed Faculty Performance */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Detailed Faculty Performance</CardTitle>
-                <CardDescription>Performance breakdown by criteria</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={400}>
-                  <LineChart data={facultyPerformanceData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis domain={[0, 5]} />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="engagement" stroke="#8884d8" name="Engagement" />
-                    <Line type="monotone" dataKey="communication" stroke="#82ca9d" name="Communication" />
-                    <Line type="monotone" dataKey="pedagogy" stroke="#ffc658" name="Pedagogy" />
-                    <Line type="monotone" dataKey="overall" stroke="#ff7300" name="Overall" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
+            {/* Department Insights */}
+            {departmentInsights.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Department Insights</CardTitle>
+                  <CardDescription>Performance breakdown by department</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                    {departmentInsights.map((dept, index) => (
+                      <Card key={dept.department} className="border-l-4" style={{ borderLeftColor: COLORS[index % COLORS.length] }}>
+                        <CardContent className="p-4">
+                          <h4 className="font-semibold mb-2">{dept.department}</h4>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between">
+                              <span>Faculty Count:</span>
+                              <span className="font-medium">{dept.facultyCount}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Avg Rating:</span>
+                              <span className="font-medium">{dept.avgRating.toFixed(1)}/5</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Total Ratings:</span>
+                              <span className="font-medium">{dept.totalRatings}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Top Performer:</span>
+                              <span className="font-medium text-green-600">{dept.topPerformer}</span>
+                            </div>
+                            {dept.improvementNeeded > 0 && (
+                              <div className="flex justify-between">
+                                <span>Need Improvement:</span>
+                                <span className="font-medium text-red-600">{dept.improvementNeeded}</span>
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                  
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={departmentInsights}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="department" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="avgRating" fill="#8884d8" name="Average Rating" />
+                      <Bar dataKey="facultyCount" fill="#82ca9d" name="Faculty Count" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Faculty Table */}
             <Card>
               <CardHeader>
                 <CardTitle>Faculty Ratings Summary</CardTitle>
-                <CardDescription>Detailed breakdown of all faculty ratings - Click "View Details" for comprehensive insights</CardDescription>
+                <CardDescription>Comprehensive faculty performance data - Click "View Details" for detailed analytics</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
@@ -416,19 +598,30 @@ const AdminDashboard = () => {
                         <th className="border border-gray-200 px-4 py-2 text-center">Engagement</th>
                         <th className="border border-gray-200 px-4 py-2 text-center">Communication</th>
                         <th className="border border-gray-200 px-4 py-2 text-center">Pedagogy</th>
+                        <th className="border border-gray-200 px-4 py-2 text-center">Performance</th>
                         <th className="border border-gray-200 px-4 py-2 text-center">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {facultyRatings.map((faculty) => (
+                      {facultyRatings
+                        .sort((a, b) => b.overall_average - a.overall_average)
+                        .map((faculty, index) => (
                         <tr key={faculty.faculty_id} className="hover:bg-gray-50">
-                          <td className="border border-gray-200 px-4 py-2 font-medium">{faculty.faculty_name}</td>
+                          <td className="border border-gray-200 px-4 py-2">
+                            <div>
+                              <div className="font-medium">{faculty.faculty_name}</div>
+                              <div className="text-sm text-gray-500">{faculty.position}</div>
+                            </div>
+                          </td>
                           <td className="border border-gray-200 px-4 py-2">{faculty.department}</td>
-                          <td className="border border-gray-200 px-4 py-2 text-center">{faculty.total_ratings}</td>
                           <td className="border border-gray-200 px-4 py-2 text-center">
-                            <span className={`px-2 py-1 rounded text-sm ${
-                              faculty.overall_average >= 4 ? 'bg-green-100 text-green-800' :
-                              faculty.overall_average >= 3 ? 'bg-yellow-100 text-yellow-800' :
+                            <span className="font-medium">{faculty.total_ratings}</span>
+                          </td>
+                          <td className="border border-gray-200 px-4 py-2 text-center">
+                            <span className={`px-2 py-1 rounded text-sm font-medium ${
+                              faculty.overall_average >= 4.5 ? 'bg-green-100 text-green-800' :
+                              faculty.overall_average >= 4 ? 'bg-blue-100 text-blue-800' :
+                              faculty.overall_average >= 3.5 ? 'bg-yellow-100 text-yellow-800' :
                               'bg-red-100 text-red-800'
                             }`}>
                               {faculty.overall_average.toFixed(1)}
@@ -437,6 +630,20 @@ const AdminDashboard = () => {
                           <td className="border border-gray-200 px-4 py-2 text-center">{faculty.avg_engagement.toFixed(1)}</td>
                           <td className="border border-gray-200 px-4 py-2 text-center">{faculty.avg_communication_skills.toFixed(1)}</td>
                           <td className="border border-gray-200 px-4 py-2 text-center">{faculty.avg_pedagogy_techniques_tools.toFixed(1)}</td>
+                          <td className="border border-gray-200 px-4 py-2 text-center">
+                            {index < 3 && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <Award className="w-3 h-3 mr-1" />
+                                Top {index + 1}
+                              </span>
+                            )}
+                            {faculty.overall_average < 3.5 && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                <Target className="w-3 h-3 mr-1" />
+                                Action Needed
+                              </span>
+                            )}
+                          </td>
                           <td className="border border-gray-200 px-4 py-2 text-center">
                             <Button
                               onClick={() => handleViewFacultyDetail(faculty.faculty_id)}

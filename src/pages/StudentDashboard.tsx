@@ -5,7 +5,8 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader, LogOut, User, ArrowLeft, ArrowRight } from "lucide-react";
+import { Loader, LogOut, User, ArrowLeft, ArrowRight, BookOpen, Users, Star } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface StudentProfile {
   id: string;
@@ -38,15 +39,36 @@ interface FacultyAssignment {
   };
 }
 
+interface MyRating {
+  id: string;
+  engagement: number;
+  concept_understanding: number;
+  content_spread_depth: number;
+  application_oriented_teaching: number;
+  pedagogy_techniques_tools: number;
+  communication_skills: number;
+  class_decorum: number;
+  teaching_aids: number;
+  feedback: string;
+  created_at: string;
+  faculty_assignments: {
+    faculty: { name: string };
+    subjects: { name: string };
+  };
+}
+
 const StudentDashboard = () => {
   const { user, loading } = useSupabaseAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [studentProfile, setStudentProfile] = useState<StudentProfile | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [facultyAssignments, setFacultyAssignments] = useState<FacultyAssignment[]>([]);
+  const [myRatings, setMyRatings] = useState<MyRating[]>([]);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [loadingFaculty, setLoadingFaculty] = useState(false);
+  const [loadingRatings, setLoadingRatings] = useState(false);
 
   // Guard: login required
   useEffect(() => {
@@ -59,51 +81,119 @@ const StudentDashboard = () => {
   useEffect(() => {
     const fetchProfile = async () => {
       if (user) {
-        const { data } = await supabase
-          .from("student_profiles")
-          .select(`
-            *,
-            years(name),
-            semesters(name),
-            sections(name)
-          `)
-          .eq("user_id", user.id)
-          .single();
+        console.log("Fetching profile for user:", user.id);
+        try {
+          const { data, error } = await supabase
+            .from("student_profiles")
+            .select(`
+              *,
+              years(name),
+              semesters(name),
+              sections(name)
+            `)
+            .eq("user_id", user.id)
+            .single();
 
-        if (data) {
-          setStudentProfile(data);
-          fetchSubjectsAndFaculty(data.section_id);
+          if (error) {
+            console.error("Error fetching profile:", error);
+            toast({
+              title: "Profile Error",
+              description: "Could not load your student profile. Please contact administration.",
+              variant: "destructive"
+            });
+          } else if (data) {
+            console.log("Profile data:", data);
+            setStudentProfile(data);
+            fetchSubjectsAndFaculty(data.section_id);
+            fetchMyRatings(data.id);
+          }
+        } catch (error) {
+          console.error("Profile fetch error:", error);
+          toast({
+            title: "Error",
+            description: "Failed to load profile data.",
+            variant: "destructive"
+          });
         }
         setLoadingProfile(false);
       }
     };
 
     fetchProfile();
-  }, [user]);
+  }, [user, toast]);
 
   const fetchSubjectsAndFaculty = async (sectionId: string) => {
     setLoadingFaculty(true);
+    console.log("Fetching faculty for section:", sectionId);
 
-    // Fetch subjects for this section
-    const { data: subjectsData } = await supabase
-      .from("subjects")
-      .select("*")
-      .eq("section_id", sectionId);
+    try {
+      // Fetch subjects for this section
+      const { data: subjectsData, error: subjectsError } = await supabase
+        .from("subjects")
+        .select("*")
+        .eq("section_id", sectionId);
 
-    setSubjects(subjectsData || []);
+      if (subjectsError) {
+        console.error("Subjects error:", subjectsError);
+      } else {
+        console.log("Subjects data:", subjectsData);
+        setSubjects(subjectsData || []);
+      }
 
-    // Fetch faculty assignments for this section
-    const { data: facultyData } = await supabase
-      .from("faculty_assignments")
-      .select(`
-        id,
-        faculty(id, name, email, department, position),
-        subjects(name)
-      `)
-      .eq("section_id", sectionId);
+      // Fetch faculty assignments for this section
+      const { data: facultyData, error: facultyError } = await supabase
+        .from("faculty_assignments")
+        .select(`
+          id,
+          faculty(id, name, email, department, position),
+          subjects(name)
+        `)
+        .eq("section_id", sectionId);
 
-    setFacultyAssignments(facultyData || []);
+      if (facultyError) {
+        console.error("Faculty error:", facultyError);
+        toast({
+          title: "Faculty Error",
+          description: "Could not load faculty assignments.",
+          variant: "destructive"
+        });
+      } else {
+        console.log("Faculty data:", facultyData);
+        setFacultyAssignments(facultyData || []);
+      }
+    } catch (error) {
+      console.error("Faculty/Subjects fetch error:", error);
+    }
     setLoadingFaculty(false);
+  };
+
+  const fetchMyRatings = async (studentId: string) => {
+    setLoadingRatings(true);
+    console.log("Fetching ratings for student:", studentId);
+
+    try {
+      const { data: ratingsData, error } = await supabase
+        .from("faculty_credentials_ratings")
+        .select(`
+          *,
+          faculty_assignments!inner(
+            faculty(name),
+            subjects(name)
+          )
+        `)
+        .eq("student_id", studentId)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Ratings error:", error);
+      } else {
+        console.log("Ratings data:", ratingsData);
+        setMyRatings(ratingsData || []);
+      }
+    } catch (error) {
+      console.error("Ratings fetch error:", error);
+    }
+    setLoadingRatings(false);
   };
 
   const handleLogout = async () => {
@@ -123,6 +213,21 @@ const StudentDashboard = () => {
 
   const handleNavigateForward = () => {
     navigate(1);
+  };
+
+  // Calculate average rating for a rating entry
+  const calculateAverageRating = (rating: MyRating) => {
+    const scores = [
+      rating.engagement,
+      rating.concept_understanding,
+      rating.content_spread_depth,
+      rating.application_oriented_teaching,
+      rating.pedagogy_techniques_tools,
+      rating.communication_skills,
+      rating.class_decorum,
+      rating.teaching_aids
+    ];
+    return scores.reduce((sum, score) => sum + score, 0) / scores.length;
   };
 
   // Guard: loading state
@@ -224,8 +329,44 @@ const StudentDashboard = () => {
           </CardContent>
         </Card>
 
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Faculty</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{facultyAssignments.length}</div>
+              <p className="text-xs text-muted-foreground">Assigned to your section</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Subjects</CardTitle>
+              <BookOpen className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{subjects.length}</div>
+              <p className="text-xs text-muted-foreground">In your curriculum</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Ratings Given</CardTitle>
+              <Star className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{myRatings.length}</div>
+              <p className="text-xs text-muted-foreground">Faculty evaluations submitted</p>
+            </CardContent>
+          </Card>
+        </div>
+
         {/* Faculty and Subjects */}
-        <Card>
+        <Card className="mb-8">
           <CardHeader>
             <CardTitle>Rate Your Faculty</CardTitle>
             <p className="text-sm text-muted-foreground">
@@ -266,6 +407,70 @@ const StudentDashboard = () => {
                         >
                           Rate Faculty
                         </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* My Ratings History */}
+        <Card>
+          <CardHeader>
+            <CardTitle>My Rating History</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              View all the ratings you have submitted
+            </p>
+          </CardHeader>
+          <CardContent>
+            {loadingRatings ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader className="w-6 h-6 animate-spin mr-2" />
+                <span>Loading your ratings...</span>
+              </div>
+            ) : myRatings.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">You haven't submitted any ratings yet.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {myRatings.map((rating) => (
+                  <Card key={rating.id} className="border-l-4 border-blue-500">
+                    <CardContent className="p-4">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-semibold">{rating.faculty_assignments.faculty.name}</h4>
+                            <span className="text-sm text-muted-foreground">•</span>
+                            <span className="text-sm text-blue-600">{rating.faculty_assignments.subjects.name}</span>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm mb-3">
+                            <div>Engagement: <span className="font-medium">{rating.engagement}/5</span></div>
+                            <div>Understanding: <span className="font-medium">{rating.concept_understanding}/5</span></div>
+                            <div>Content Depth: <span className="font-medium">{rating.content_spread_depth}/5</span></div>
+                            <div>Communication: <span className="font-medium">{rating.communication_skills}/5</span></div>
+                          </div>
+
+                          {rating.feedback && (
+                            <div className="bg-gray-50 p-3 rounded-md mb-2">
+                              <p className="text-sm text-gray-700">"{rating.feedback}"</p>
+                            </div>
+                          )}
+                          
+                          <p className="text-xs text-muted-foreground">
+                            Submitted on {new Date(rating.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        
+                        <div className="text-right">
+                          <div className="text-lg font-bold text-blue-600">
+                            {calculateAverageRating(rating).toFixed(1)}
+                          </div>
+                          <div className="text-xs text-muted-foreground">Overall</div>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
