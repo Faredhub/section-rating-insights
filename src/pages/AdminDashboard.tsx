@@ -63,6 +63,7 @@ const AdminDashboard = () => {
   const [semesters, setSemesters] = useState<any[]>([]);
   const [sections, setSections] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
+  const [submittingFaculty, setSubmittingFaculty] = useState(false);
 
   const form = useForm<z.infer<typeof facultyFormSchema>>({
     resolver: zodResolver(facultyFormSchema),
@@ -83,6 +84,25 @@ const AdminDashboard = () => {
       setLoadingData(true);
       
       try {
+        // Fetch basic stats first
+        console.log("Fetching basic stats...");
+        const [facultyCountResult, ratingsCountResult, studentsCountResult] = await Promise.all([
+          supabase.from("faculty").select("*", { count: "exact", head: true }),
+          supabase.from("faculty_credentials_ratings").select("*", { count: "exact", head: true }),
+          supabase.from("student_profiles").select("*", { count: "exact", head: true })
+        ]);
+
+        setTotalFaculty(facultyCountResult.count || 0);
+        setTotalRatings(ratingsCountResult.count || 0);
+        setTotalStudents(studentsCountResult.count || 0);
+
+        console.log("Basic stats loaded:", {
+          faculty: facultyCountResult.count,
+          ratings: ratingsCountResult.count,
+          students: studentsCountResult.count
+        });
+
+        // Fetch faculty ratings with detailed analytics
         console.log("Fetching faculty ratings...");
         const { data: ratingsData, error: ratingsError } = await supabase
           .from("faculty_credentials_ratings")
@@ -106,150 +126,132 @@ const AdminDashboard = () => {
 
         if (ratingsError) {
           console.error("Error fetching ratings:", ratingsError);
-          throw ratingsError;
-        }
+          // Don't throw error, just log it and continue with empty data
+          setFacultyRatings([]);
+        } else {
+          console.log("Ratings data:", ratingsData);
 
-        console.log("Ratings data:", ratingsData);
+          const facultyMap = new Map<string, {
+            faculty_id: string;
+            faculty_name: string;
+            department: string;
+            position: string;
+            subjects: Set<string>;
+            ratings: number[];
+            criteria: { [key: string]: number[] };
+            feedbacks: string[];
+            monthlyRatings: { [month: string]: number[] };
+          }>();
 
-        const facultyMap = new Map<string, {
-          faculty_id: string;
-          faculty_name: string;
-          department: string;
-          position: string;
-          subjects: Set<string>;
-          ratings: number[];
-          criteria: { [key: string]: number[] };
-          feedbacks: string[];
-          monthlyRatings: { [month: string]: number[] };
-        }>();
+          ratingsData?.forEach((rating) => {
+            const faculty = rating.faculty_assignments.faculty;
+            const subject = rating.faculty_assignments.subjects.name;
+            const facultyId = faculty.id;
+            const month = new Date(rating.created_at).toLocaleDateString('en-US', { 
+              year: 'numeric', 
+              month: 'short' 
+            });
+            
+            if (!facultyMap.has(facultyId)) {
+              facultyMap.set(facultyId, {
+                faculty_id: facultyId,
+                faculty_name: faculty.name,
+                department: faculty.department,
+                position: faculty.position,
+                subjects: new Set(),
+                ratings: [],
+                criteria: {
+                  engagement: [],
+                  concept_understanding: [],
+                  content_spread_depth: [],
+                  application_oriented_teaching: [],
+                  pedagogy_techniques_tools: [],
+                  communication_skills: [],
+                  class_decorum: [],
+                  teaching_aids: []
+                },
+                feedbacks: [],
+                monthlyRatings: {}
+              });
+            }
 
-        ratingsData?.forEach((rating) => {
-          const faculty = rating.faculty_assignments.faculty;
-          const subject = rating.faculty_assignments.subjects.name;
-          const facultyId = faculty.id;
-          const month = new Date(rating.created_at).toLocaleDateString('en-US', { 
-            year: 'numeric', 
-            month: 'short' 
+            const facultyData = facultyMap.get(facultyId)!;
+            facultyData.subjects.add(subject);
+            
+            // Calculate overall rating for this submission
+            const overallRating = (
+              rating.engagement + rating.concept_understanding + rating.content_spread_depth +
+              rating.application_oriented_teaching + rating.pedagogy_techniques_tools +
+              rating.communication_skills + rating.class_decorum + rating.teaching_aids
+            ) / 8;
+            
+            facultyData.ratings.push(overallRating);
+            
+            // Store criteria ratings
+            facultyData.criteria.engagement.push(rating.engagement);
+            facultyData.criteria.concept_understanding.push(rating.concept_understanding);
+            facultyData.criteria.content_spread_depth.push(rating.content_spread_depth);
+            facultyData.criteria.application_oriented_teaching.push(rating.application_oriented_teaching);
+            facultyData.criteria.pedagogy_techniques_tools.push(rating.pedagogy_techniques_tools);
+            facultyData.criteria.communication_skills.push(rating.communication_skills);
+            facultyData.criteria.class_decorum.push(rating.class_decorum);
+            facultyData.criteria.teaching_aids.push(rating.teaching_aids);
+            
+            // Store feedback
+            if (rating.feedback) {
+              facultyData.feedbacks.push(rating.feedback);
+            }
+            
+            // Store monthly ratings for trend analysis
+            if (!facultyData.monthlyRatings[month]) {
+              facultyData.monthlyRatings[month] = [];
+            }
+            facultyData.monthlyRatings[month].push(overallRating);
           });
-          
-          if (!facultyMap.has(facultyId)) {
-            facultyMap.set(facultyId, {
-              faculty_id: facultyId,
-              faculty_name: faculty.name,
+
+          const processedFacultyRatings: FacultyRating[] = Array.from(facultyMap.values()).map(faculty => {
+            const criteriaAverages = Object.entries(faculty.criteria).reduce((acc, [key, values]) => {
+              acc[`avg_${key}`] = values.length > 0 ? values.reduce((sum, val) => sum + val, 0) / values.length : 0;
+              return acc;
+            }, {} as { [key: string]: number });
+
+            const overallAverage = faculty.ratings.length > 0 
+              ? faculty.ratings.reduce((sum, val) => sum + val, 0) / faculty.ratings.length 
+              : 0;
+
+            return {
+              faculty_id: faculty.faculty_id,
+              faculty_name: faculty.faculty_name,
               department: faculty.department,
               position: faculty.position,
-              subjects: new Set(),
-              ratings: [],
-              criteria: {
-                engagement: [],
-                concept_understanding: [],
-                content_spread_depth: [],
-                application_oriented_teaching: [],
-                pedagogy_techniques_tools: [],
-                communication_skills: [],
-                class_decorum: [],
-                teaching_aids: []
-              },
-              feedbacks: [],
-              monthlyRatings: {}
-            });
-          }
+              total_ratings: faculty.ratings.length,
+              subjects_taught: Array.from(faculty.subjects),
+              feedbacks: faculty.feedbacks,
+              ...criteriaAverages,
+              overall_average: overallAverage,
+              consistency_score: faculty.ratings.length > 1 
+                ? 5 - (faculty.ratings.reduce((acc, rating, i, arr) => 
+                    i === 0 ? 0 : acc + Math.abs(rating - arr[i-1]), 0) / (faculty.ratings.length - 1))
+                : 5,
+              improvement_trend: faculty.ratings.length > 2
+                ? (faculty.ratings.slice(-3).reduce((sum, r) => sum + r, 0) / 3) - 
+                  (faculty.ratings.slice(0, 3).reduce((sum, r) => sum + r, 0) / 3)
+                : 0,
+              student_satisfaction: overallAverage >= 4.5 ? 'Excellent' : 
+                                 overallAverage >= 4.0 ? 'Good' : 
+                                 overallAverage >= 3.5 ? 'Average' : 'Needs Improvement'
+            } as FacultyRating;
+          });
 
-          const facultyData = facultyMap.get(facultyId)!;
-          facultyData.subjects.add(subject);
-          
-          // Calculate overall rating for this submission
-          const overallRating = (
-            rating.engagement + rating.concept_understanding + rating.content_spread_depth +
-            rating.application_oriented_teaching + rating.pedagogy_techniques_tools +
-            rating.communication_skills + rating.class_decorum + rating.teaching_aids
-          ) / 8;
-          
-          facultyData.ratings.push(overallRating);
-          
-          // Store criteria ratings
-          facultyData.criteria.engagement.push(rating.engagement);
-          facultyData.criteria.concept_understanding.push(rating.concept_understanding);
-          facultyData.criteria.content_spread_depth.push(rating.content_spread_depth);
-          facultyData.criteria.application_oriented_teaching.push(rating.application_oriented_teaching);
-          facultyData.criteria.pedagogy_techniques_tools.push(rating.pedagogy_techniques_tools);
-          facultyData.criteria.communication_skills.push(rating.communication_skills);
-          facultyData.criteria.class_decorum.push(rating.class_decorum);
-          facultyData.criteria.teaching_aids.push(rating.teaching_aids);
-          
-          // Store feedback
-          if (rating.feedback) {
-            facultyData.feedbacks.push(rating.feedback);
-          }
-          
-          // Store monthly ratings for trend analysis
-          if (!facultyData.monthlyRatings[month]) {
-            facultyData.monthlyRatings[month] = [];
-          }
-          facultyData.monthlyRatings[month].push(overallRating);
-        });
-
-        const processedFacultyRatings: FacultyRating[] = Array.from(facultyMap.values()).map(faculty => {
-          const criteriaAverages = Object.entries(faculty.criteria).reduce((acc, [key, values]) => {
-            acc[`avg_${key}`] = values.length > 0 ? values.reduce((sum, val) => sum + val, 0) / values.length : 0;
-            return acc;
-          }, {} as { [key: string]: number });
-
-          const overallAverage = faculty.ratings.length > 0 
-            ? faculty.ratings.reduce((sum, val) => sum + val, 0) / faculty.ratings.length 
-            : 0;
-
-          return {
-            faculty_id: faculty.faculty_id,
-            faculty_name: faculty.faculty_name,
-            department: faculty.department,
-            position: faculty.position,
-            total_ratings: faculty.ratings.length,
-            subjects_taught: Array.from(faculty.subjects),
-            feedbacks: faculty.feedbacks,
-            ...criteriaAverages,
-            overall_average: overallAverage,
-            consistency_score: faculty.ratings.length > 1 
-              ? 5 - (faculty.ratings.reduce((acc, rating, i, arr) => 
-                  i === 0 ? 0 : acc + Math.abs(rating - arr[i-1]), 0) / (faculty.ratings.length - 1))
-              : 5,
-            improvement_trend: faculty.ratings.length > 2
-              ? (faculty.ratings.slice(-3).reduce((sum, r) => sum + r, 0) / 3) - 
-                (faculty.ratings.slice(0, 3).reduce((sum, r) => sum + r, 0) / 3)
-              : 0,
-            student_satisfaction: overallAverage >= 4.5 ? 'Excellent' : 
-                               overallAverage >= 4.0 ? 'Good' : 
-                               overallAverage >= 3.5 ? 'Average' : 'Needs Improvement'
-          } as FacultyRating;
-        });
-
-        console.log("Processed faculty ratings:", processedFacultyRatings);
-        setFacultyRatings(processedFacultyRatings);
-
-        console.log("Fetching basic stats...");
-        const { count: facultyCount } = await supabase
-          .from("faculty")
-          .select("*", { count: "exact", head: true });
-
-        const { count: ratingsCount } = await supabase
-          .from("faculty_credentials_ratings")
-          .select("*", { count: "exact", head: true });
-
-        const { count: studentsCount } = await supabase
-          .from("student_profiles")
-          .select("*", { count: "exact", head: true });
-
-        console.log("Faculty count:", facultyCount, "Ratings count:", ratingsCount, "Students count:", studentsCount);
-
-        setTotalFaculty(facultyCount || 0);
-        setTotalRatings(ratingsCount || 0);
-        setTotalStudents(studentsCount || 0);
+          console.log("Processed faculty ratings:", processedFacultyRatings);
+          setFacultyRatings(processedFacultyRatings);
+        }
 
       } catch (error) {
         console.error("Error fetching analytics:", error);
         toast({
           title: "Error",
-          description: "Failed to fetch analytics data. Loading default view.",
+          description: "Failed to fetch some analytics data. Showing available information.",
           variant: "destructive"
         });
       } finally {
@@ -260,15 +262,24 @@ const AdminDashboard = () => {
 
     const fetchFormData = async () => {
       try {
-        const { data: yearsData } = await supabase.from("years").select("*");
-        const { data: semestersData } = await supabase.from("semesters").select("*");
-        const { data: sectionsData } = await supabase.from("sections").select("*");
-        const { data: subjectsData } = await supabase.from("subjects").select("*");
+        const [yearsResult, semestersResult, sectionsResult, subjectsResult] = await Promise.all([
+          supabase.from("years").select("*"),
+          supabase.from("semesters").select("*"),
+          supabase.from("sections").select("*"),
+          supabase.from("subjects").select("*")
+        ]);
 
-        setYears(yearsData || []);
-        setSemesters(semestersData || []);
-        setSections(sectionsData || []);
-        setSubjects(subjectsData || []);
+        setYears(yearsResult.data || []);
+        setSemesters(semestersResult.data || []);
+        setSections(sectionsResult.data || []);
+        setSubjects(subjectsResult.data || []);
+
+        console.log("Form data loaded:", {
+          years: yearsResult.data?.length || 0,
+          semesters: semestersResult.data?.length || 0,
+          sections: sectionsResult.data?.length || 0,
+          subjects: subjectsResult.data?.length || 0
+        });
       } catch (error) {
         console.error("Error fetching form data:", error);
       }
@@ -279,6 +290,9 @@ const AdminDashboard = () => {
   }, [toast]);
 
   const handleAddFaculty = async (values: z.infer<typeof facultyFormSchema>) => {
+    if (submittingFaculty) return;
+    
+    setSubmittingFaculty(true);
     try {
       console.log("Adding faculty with values:", values);
       
@@ -299,7 +313,7 @@ const AdminDashboard = () => {
         throw facultyError;
       }
 
-      console.log("Faculty inserted:", facultyData);
+      console.log("Faculty inserted successfully:", facultyData);
 
       // Create faculty assignment
       const { error: assignmentError } = await supabase
@@ -315,6 +329,8 @@ const AdminDashboard = () => {
         throw assignmentError;
       }
 
+      console.log("Faculty assignment created successfully");
+
       toast({
         title: "Success",
         description: "Faculty added successfully!",
@@ -323,15 +339,17 @@ const AdminDashboard = () => {
       setIsAddFacultyOpen(false);
       form.reset();
       
-      // Refresh the data
+      // Refresh the data by reloading the page
       window.location.reload();
     } catch (error: any) {
       console.error("Error adding faculty:", error);
       toast({
         title: "Error",
-        description: error.message || "Failed to add faculty",
+        description: error.message || "Failed to add faculty. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setSubmittingFaculty(false);
     }
   };
 
@@ -369,8 +387,8 @@ const AdminDashboard = () => {
     );
   }
 
-  // Calculate real-time metrics
-  const currentYear = new Date().getFullYear(); // This will be 2025
+  // Calculate real-time metrics with fallbacks
+  const currentYear = new Date().getFullYear();
   const overallAverage = facultyRatings.length > 0 
     ? facultyRatings.reduce((sum, f) => sum + f.overall_average, 0) / facultyRatings.length 
     : 4.1;
@@ -384,9 +402,9 @@ const AdminDashboard = () => {
     ? Math.round((facultyRatings.filter(f => f.overall_average >= 4.0).length / facultyRatings.length) * 100)
     : 75;
 
-  // Sample data for charts when no real data is available
-  const sampleFacultyData = facultyRatings.length > 0 ? facultyRatings.slice(0, 10).map(faculty => ({
-    name: faculty.faculty_name.split(' ').slice(-1)[0],
+  // Sample data for charts when no real data is available or to supplement real data
+  const chartData = facultyRatings.length > 0 ? facultyRatings.slice(0, 10).map(faculty => ({
+    name: faculty.faculty_name.split(' ').slice(-1)[0] || faculty.faculty_name,
     overall: Number(faculty.overall_average.toFixed(1)),
     engagement: Number(faculty.avg_engagement.toFixed(1)),
     communication: Number(faculty.avg_communication_skills.toFixed(1)),
@@ -451,7 +469,7 @@ const AdminDashboard = () => {
           <div className="flex gap-2">
             <Dialog open={isAddFacultyOpen} onOpenChange={setIsAddFacultyOpen}>
               <DialogTrigger asChild>
-                <Button className="flex items-center gap-2">
+                <Button className="flex items-center gap-2" disabled={submittingFaculty}>
                   <Plus className="w-4 h-4" />
                   Add Faculty
                 </Button>
@@ -593,7 +611,9 @@ const AdminDashboard = () => {
                       <Button type="button" variant="outline" onClick={() => setIsAddFacultyOpen(false)}>
                         Cancel
                       </Button>
-                      <Button type="submit">Add Faculty</Button>
+                      <Button type="submit" disabled={submittingFaculty}>
+                        {submittingFaculty ? "Adding..." : "Add Faculty"}
+                      </Button>
                     </DialogFooter>
                   </form>
                 </Form>
@@ -675,11 +695,16 @@ const AdminDashboard = () => {
                 <BarChart3 className="w-5 h-5" />
                 Faculty Performance Comparison
               </CardTitle>
-              <CardDescription>Individual faculty performance across multiple criteria</CardDescription>
+              <CardDescription>
+                {facultyRatings.length > 0 
+                  ? `Individual faculty performance across multiple criteria (${facultyRatings.length} faculty)`
+                  : "Sample faculty performance data (no real data available yet)"
+                }
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <ChartContainer config={chartConfig} className="h-[300px]">
-                <BarChart data={sampleFacultyData}>
+                <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                   <YAxis domain={[0, 5]} />
@@ -700,7 +725,12 @@ const AdminDashboard = () => {
                 <Target className="w-5 h-5" />
                 Performance Distribution
               </CardTitle>
-              <CardDescription>Faculty performance categories</CardDescription>
+              <CardDescription>
+                {facultyRatings.length > 0 
+                  ? `Faculty performance categories based on ${totalRatings} total ratings`
+                  : "Sample performance distribution (no real data available yet)"
+                }
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <ChartContainer config={chartConfig} className="h-[300px]">
@@ -733,11 +763,11 @@ const AdminDashboard = () => {
         </div>
 
         {/* Faculty Ratings Table */}
-        {facultyRatings.length > 0 && (
+        {facultyRatings.length > 0 ? (
           <Card>
             <CardHeader>
               <CardTitle>Faculty Performance Summary</CardTitle>
-              <CardDescription>Real-time faculty performance data from {currentYear}</CardDescription>
+              <CardDescription>Real-time faculty performance data from {currentYear} ({facultyRatings.length} faculty members)</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -803,6 +833,22 @@ const AdminDashboard = () => {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>Faculty Performance Summary</CardTitle>
+              <CardDescription>No faculty ratings data available yet</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8">
+                <div className="text-muted-foreground mb-4">
+                  <Star className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>No faculty ratings have been submitted yet.</p>
+                  <p className="text-sm">Once students start rating faculty, their performance data will appear here.</p>
+                </div>
               </div>
             </CardContent>
           </Card>
