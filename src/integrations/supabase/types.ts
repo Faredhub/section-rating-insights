@@ -9,7 +9,167 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      faculty_assignments: {
+        Row: {
+          faculty_id: string | null
+          id: string
+          section_id: string | null
+          subject_id: string | null
+        }
+        Insert: {
+          faculty_id?: string | null
+          id?: string
+          section_id?: string | null
+          subject_id?: string | null
+        }
+        Update: {
+          faculty_id?: string | null
+          id?: string
+          section_id?: string | null
+          subject_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "faculty_assignments_faculty_id_fkey"
+            columns: ["faculty_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "faculty_assignments_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "faculty_assignments_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ratings: {
+        Row: {
+          created_at: string
+          faculty_assignment_id: string | null
+          feedback: string | null
+          id: string
+          rating: number | null
+          student_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          faculty_assignment_id?: string | null
+          feedback?: string | null
+          id?: string
+          rating?: number | null
+          student_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          faculty_assignment_id?: string | null
+          feedback?: string | null
+          id?: string
+          rating?: number | null
+          student_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ratings_faculty_assignment_id_fkey"
+            columns: ["faculty_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "faculty_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ratings_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sections: {
+        Row: {
+          id: string
+          name: string
+        }
+        Insert: {
+          id?: string
+          name: string
+        }
+        Update: {
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      subjects: {
+        Row: {
+          id: string
+          name: string
+          section_id: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          section_id?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          section_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subjects_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string
+          role: string
+          section_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          name: string
+          role: string
+          section_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          role?: string
+          section_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "users_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
