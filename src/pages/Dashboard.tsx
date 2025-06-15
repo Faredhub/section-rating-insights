@@ -1,8 +1,7 @@
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { useNavigate } from "react-router-dom";
-import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,12 +13,63 @@ const Dashboard = () => {
   const { user, loading } = useSupabaseAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [stats, setStats] = useState({
+    totalFaculty: 0,
+    totalRatings: 0,
+    departments: 0,
+    averageRating: 0
+  });
 
   useEffect(() => {
     if (!loading && !user) {
       navigate("/auth");
     }
   }, [user, loading, navigate]);
+
+  useEffect(() => {
+    if (user) {
+      fetchStats();
+    }
+  }, [user]);
+
+  const fetchStats = async () => {
+    try {
+      // Get faculty count
+      const { count: facultyCount } = await supabase
+        .from("faculty")
+        .select("*", { count: "exact", head: true });
+
+      // Get ratings count
+      const { count: ratingsCount } = await supabase
+        .from("ratings")
+        .select("*", { count: "exact", head: true });
+
+      // Get unique departments
+      const { data: facultyData } = await supabase
+        .from("faculty")
+        .select("department");
+
+      const uniqueDepartments = new Set(facultyData?.map(f => f.department) || []).size;
+
+      // Get average rating
+      const { data: avgData } = await supabase
+        .from("ratings")
+        .select("rating");
+
+      const avgRating = avgData && avgData.length > 0 
+        ? avgData.reduce((sum, r) => sum + r.rating, 0) / avgData.length 
+        : 0;
+
+      setStats({
+        totalFaculty: facultyCount || 0,
+        totalRatings: ratingsCount || 0,
+        departments: uniqueDepartments,
+        averageRating: Number(avgRating.toFixed(1))
+      });
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+    }
+  };
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -66,7 +116,7 @@ const Dashboard = () => {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">0</div>
+              <div className="text-2xl font-bold">{stats.totalFaculty}</div>
               <p className="text-xs text-muted-foreground">Faculty members registered</p>
             </CardContent>
           </Card>
@@ -77,7 +127,7 @@ const Dashboard = () => {
               <Star className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">0</div>
+              <div className="text-2xl font-bold">{stats.totalRatings}</div>
               <p className="text-xs text-muted-foreground">Ratings submitted</p>
             </CardContent>
           </Card>
@@ -88,7 +138,7 @@ const Dashboard = () => {
               <BookOpen className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">0</div>
+              <div className="text-2xl font-bold">{stats.departments}</div>
               <p className="text-xs text-muted-foreground">Academic departments</p>
             </CardContent>
           </Card>
@@ -99,7 +149,7 @@ const Dashboard = () => {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">0.0</div>
+              <div className="text-2xl font-bold">{stats.averageRating}</div>
               <p className="text-xs text-muted-foreground">Out of 5 stars</p>
             </CardContent>
           </Card>
