@@ -40,7 +40,7 @@ const AdminDashboard = () => {
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!loading && !user) {
-      navigate("/auth");
+      //navigate("/auth");
     }
   }, [user, loading, navigate]);
 
