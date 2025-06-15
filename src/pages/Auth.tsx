@@ -1,10 +1,11 @@
 
-import React, { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 
 const AuthPage = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -13,6 +14,15 @@ const AuthPage = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+
+  const { session, user, loading: authLoading } = useSupabaseAuth();
+
+  // Redirect if logged in
+  useEffect(() => {
+    if (!authLoading && session && user) {
+      navigate("/");
+    }
+  }, [session, user, authLoading, navigate]);
 
   const toggleMode = () => setIsLogin((m) => !m);
 
@@ -26,7 +36,7 @@ const AuthPage = () => {
         toast({ title: "Login Failed", description: error.message, variant: "destructive" });
       } else {
         toast({ title: "Login successful" });
-        navigate("/");
+        // navigate("/") is handled by the effect above upon login state change
       }
     } else {
       const redirectUrl = `${window.location.origin}/`;
@@ -44,6 +54,15 @@ const AuthPage = () => {
     }
     setLoading(false);
   };
+
+  // Prevent showing form while checking auth status
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-lg text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background">
@@ -88,3 +107,4 @@ const AuthPage = () => {
 };
 
 export default AuthPage;
+
