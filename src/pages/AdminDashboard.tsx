@@ -1,8 +1,8 @@
-
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Users, Star, BookOpen, TrendingUp, LogOut, Eye, Award, Target, BarChart3 } from "lucide-react";
@@ -308,7 +308,7 @@ const AdminDashboard = () => {
     );
   }
 
-  // Prepare chart data
+  // Prepare chart data with proper configuration
   const facultyPerformanceData = facultyRatings.map(faculty => ({
     name: faculty.faculty_name.split(' ').slice(-1)[0], // Last name only
     overall: faculty.overall_average,
@@ -328,6 +328,54 @@ const AdminDashboard = () => {
     { criteria: 'Decorum', average: facultyRatings.length > 0 ? facultyRatings.reduce((sum, f) => sum + f.avg_class_decorum, 0) / facultyRatings.length : 0 },
     { criteria: 'Teaching Aids', average: facultyRatings.length > 0 ? facultyRatings.reduce((sum, f) => sum + f.avg_teaching_aids, 0) / facultyRatings.length : 0 }
   ];
+
+  // Performance distribution for pie chart
+  const performanceDistribution = [
+    { name: 'Excellent (4.5+)', value: facultyRatings.filter(f => f.overall_average >= 4.5).length, fill: '#22c55e' },
+    { name: 'Good (4.0-4.4)', value: facultyRatings.filter(f => f.overall_average >= 4.0 && f.overall_average < 4.5).length, fill: '#3b82f6' },
+    { name: 'Average (3.5-3.9)', value: facultyRatings.filter(f => f.overall_average >= 3.5 && f.overall_average < 4.0).length, fill: '#eab308' },
+    { name: 'Needs Improvement (<3.5)', value: facultyRatings.filter(f => f.overall_average < 3.5).length, fill: '#ef4444' }
+  ];
+
+  // Faculty ranking data for top/bottom performers
+  const topPerformers = facultyRatings
+    .slice() // copy to avoid mutating original
+    .sort((a, b) => b.overall_average - a.overall_average)
+    .slice(0, 5)
+    .map((faculty, index) => ({
+      rank: index + 1,
+      name: faculty.faculty_name,
+      department: faculty.department,
+      score: faculty.overall_average,
+      ratings: faculty.total_ratings
+    }));
+
+  const chartConfig = {
+    overall: {
+      label: "Overall Rating",
+      color: "#8884d8",
+    },
+    engagement: {
+      label: "Engagement",
+      color: "#82ca9d",
+    },
+    communication: {
+      label: "Communication",
+      color: "#ffc658",
+    },
+    pedagogy: {
+      label: "Pedagogy",
+      color: "#ff7c7c",
+    },
+    ratings: {
+      label: "Total Ratings",
+      color: "#8dd1e1",
+    },
+    average: {
+      label: "Average Score",
+      color: "#8884d8",
+    }
+  };
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D', '#FFC658', '#FF7C7C'];
 
@@ -454,6 +502,113 @@ const AdminDashboard = () => {
           </Card>
         ) : (
           <>
+            {/* Faculty Performance Overview & Distribution */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Faculty Performance Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Faculty Performance Overview</CardTitle>
+                  <CardDescription>Overall ratings and participation by faculty</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer config={chartConfig} className="h-[400px]">
+                    <ComposedChart data={facultyPerformanceData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis yAxisId="left" domain={[0, 5]} />
+                      <YAxis yAxisId="right" orientation="right" />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <ChartLegend content={<ChartLegendContent />} />
+                      <Bar yAxisId="right" dataKey="ratings" fill="var(--color-ratings)" name="Total Ratings" />
+                      <Line yAxisId="left" type="monotone" dataKey="overall" stroke="var(--color-overall)" strokeWidth={2} name="Overall Rating" />
+                    </ComposedChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+
+              {/* Performance Distribution */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Performance Distribution</CardTitle>
+                  <CardDescription>Faculty distribution by performance levels</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer config={chartConfig} className="h-[400px]">
+                    <PieChart>
+                      <Pie
+                        data={performanceDistribution}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(0)}%)`}
+                        outerRadius={120}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {performanceDistribution.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.fill} />
+                        ))}
+                      </Pie>
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                    </PieChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Criteria Analysis & Top Performers */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Criteria Performance */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Criteria Performance Analysis</CardTitle>
+                  <CardDescription>Average performance across all evaluation criteria</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer config={chartConfig} className="h-[400px]">
+                    <BarChart data={criteriaComparisonData} layout="horizontal">
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" domain={[0, 5]} />
+                      <YAxis dataKey="criteria" type="category" width={100} />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar dataKey="average" fill="var(--color-average)" />
+                    </BarChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+
+              {/* Top Performers List */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Top Faculty Performers</CardTitle>
+                  <CardDescription>Highest rated faculty members</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {topPerformers.map((faculty, index) => (
+                      <div key={faculty.name} className="flex items-center justify-between p-4 rounded-lg border">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${
+                            index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-amber-600' : 'bg-blue-500'
+                          }`}>
+                            {faculty.rank}
+                          </div>
+                          <div>
+                            <div className="font-medium">{faculty.name}</div>
+                            <div className="text-sm text-muted-foreground">{faculty.department}</div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-lg font-bold">{faculty.score.toFixed(1)}</div>
+                          <div className="text-xs text-muted-foreground">{faculty.ratings} ratings</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
             {/* Performance Trends */}
             {performanceTrends.length > 0 && (
               <Card>
@@ -462,66 +617,22 @@ const AdminDashboard = () => {
                   <CardDescription>Monthly rating trends and participation</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ResponsiveContainer width="100%" height={300}>
+                  <ChartContainer config={chartConfig} className="h-[400px]">
                     <ComposedChart data={performanceTrends}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="month" />
                       <YAxis yAxisId="left" domain={[0, 5]} />
                       <YAxis yAxisId="right" orientation="right" />
-                      <Tooltip />
-                      <Legend />
-                      <Area yAxisId="left" type="monotone" dataKey="avgRating" fill="#8884d8" fillOpacity={0.3} />
-                      <Line yAxisId="left" type="monotone" dataKey="avgRating" stroke="#8884d8" strokeWidth={2} name="Avg Rating" />
-                      <Bar yAxisId="right" dataKey="totalRatings" fill="#82ca9d" name="Total Ratings" />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <ChartLegend content={<ChartLegendContent />} />
+                      <Area yAxisId="left" type="monotone" dataKey="avgRating" fill="var(--color-overall)" fillOpacity={0.3} />
+                      <Line yAxisId="left" type="monotone" dataKey="avgRating" stroke="var(--color-overall)" strokeWidth={2} name="Avg Rating" />
+                      <Bar yAxisId="right" dataKey="totalRatings" fill="var(--color-ratings)" name="Total Ratings" />
                     </ComposedChart>
-                  </ResponsiveContainer>
+                  </ChartContainer>
                 </CardContent>
               </Card>
             )}
-
-            {/* Charts Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Faculty Performance Overview */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Faculty Performance Overview</CardTitle>
-                  <CardDescription>Overall ratings and participation by faculty</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={350}>
-                    <ComposedChart data={facultyPerformanceData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis yAxisId="left" domain={[0, 5]} />
-                      <YAxis yAxisId="right" orientation="right" />
-                      <Tooltip />
-                      <Legend />
-                      <Bar yAxisId="right" dataKey="ratings" fill="#E3F2FD" name="Total Ratings" />
-                      <Line yAxisId="left" type="monotone" dataKey="overall" stroke="#8884d8" strokeWidth={2} name="Overall Rating" />
-                    </ComposedChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-
-              {/* Criteria Performance Radar */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Criteria Performance Analysis</CardTitle>
-                  <CardDescription>Average performance across all evaluation criteria</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={350}>
-                    <BarChart data={criteriaComparisonData} layout="horizontal">
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" domain={[0, 5]} />
-                      <YAxis dataKey="criteria" type="category" width={80} />
-                      <Tooltip formatter={(value: any) => [value?.toFixed(2), "Average Score"]} />
-                      <Bar dataKey="average" fill="#8884d8" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            </div>
 
             {/* Department Insights */}
             {departmentInsights.length > 0 && (
@@ -565,17 +676,17 @@ const AdminDashboard = () => {
                     ))}
                   </div>
                   
-                  <ResponsiveContainer width="100%" height={300}>
+                  <ChartContainer config={chartConfig} className="h-[300px]">
                     <BarChart data={departmentInsights}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="department" />
                       <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="avgRating" fill="#8884d8" name="Average Rating" />
-                      <Bar dataKey="facultyCount" fill="#82ca9d" name="Faculty Count" />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <ChartLegend content={<ChartLegendContent />} />
+                      <Bar dataKey="avgRating" fill="var(--color-overall)" name="Average Rating" />
+                      <Bar dataKey="facultyCount" fill="var(--color-ratings)" name="Faculty Count" />
                     </BarChart>
-                  </ResponsiveContainer>
+                  </ChartContainer>
                 </CardContent>
               </Card>
             )}
@@ -604,6 +715,7 @@ const AdminDashboard = () => {
                     </thead>
                     <tbody>
                       {facultyRatings
+                        .slice()
                         .sort((a, b) => b.overall_average - a.overall_average)
                         .map((faculty, index) => (
                         <tr key={faculty.faculty_id} className="hover:bg-gray-50">
