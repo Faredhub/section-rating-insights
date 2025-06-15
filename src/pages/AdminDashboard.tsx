@@ -1,5 +1,5 @@
+
 import React, { useEffect, useState } from "react";
-import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +27,6 @@ interface FacultyRating {
 }
 
 const AdminDashboard = () => {
-  const { user, loading } = useSupabaseAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [facultyRatings, setFacultyRatings] = useState<FacultyRating[]>([]);
@@ -37,20 +36,15 @@ const AdminDashboard = () => {
   const [loadingData, setLoadingData] = useState(true);
   const [selectedFacultyId, setSelectedFacultyId] = useState<string | null>(null);
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!loading && !user) {
-      //navigate("/auth");
-    }
-  }, [user, loading, navigate]);
-
   // Fetch analytics data
   useEffect(() => {
     const fetchAnalytics = async () => {
+      console.log("Starting to fetch analytics data...");
       setLoadingData(true);
       
       try {
         // Get faculty ratings analytics
+        console.log("Fetching faculty ratings...");
         const { data: ratingsData, error: ratingsError } = await supabase
           .from("faculty_credentials_ratings")
           .select(`
@@ -68,7 +62,12 @@ const AdminDashboard = () => {
             )
           `);
 
-        if (ratingsError) throw ratingsError;
+        if (ratingsError) {
+          console.error("Error fetching ratings:", ratingsError);
+          throw ratingsError;
+        }
+
+        console.log("Ratings data:", ratingsData);
 
         // Process faculty ratings
         const facultyMap = new Map<string, {
@@ -135,9 +134,11 @@ const AdminDashboard = () => {
           } as FacultyRating;
         });
 
+        console.log("Processed faculty ratings:", processedFacultyRatings);
         setFacultyRatings(processedFacultyRatings);
 
         // Get basic stats
+        console.log("Fetching basic stats...");
         const { count: facultyCount } = await supabase
           .from("faculty")
           .select("*", { count: "exact", head: true });
@@ -145,6 +146,8 @@ const AdminDashboard = () => {
         const { count: ratingsCount } = await supabase
           .from("faculty_credentials_ratings")
           .select("*", { count: "exact", head: true });
+
+        console.log("Faculty count:", facultyCount, "Ratings count:", ratingsCount);
 
         setTotalFaculty(facultyCount || 0);
         setTotalRatings(ratingsCount || 0);
@@ -154,18 +157,23 @@ const AdminDashboard = () => {
         console.error("Error fetching analytics:", error);
         toast({
           title: "Error",
-          description: "Failed to fetch analytics data",
+          description: "Failed to fetch analytics data. Using demo data instead.",
           variant: "destructive"
         });
+        
+        // Set demo data if there's an error
+        setFacultyRatings([]);
+        setTotalFaculty(0);
+        setTotalRatings(0);
+        setTotalStudents(0);
       } finally {
+        console.log("Finished loading data");
         setLoadingData(false);
       }
     };
 
-    if (user) {
-      fetchAnalytics();
-    }
-  }, [user, toast]);
+    fetchAnalytics();
+  }, [toast]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -180,10 +188,10 @@ const AdminDashboard = () => {
     setSelectedFacultyId(null);
   };
 
-  if (loading || loadingData) {
+  if (loadingData) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-lg text-muted-foreground">Loading...</div>
+        <div className="text-lg text-muted-foreground">Loading admin dashboard...</div>
       </div>
     );
   }
@@ -235,10 +243,15 @@ const AdminDashboard = () => {
             <h1 className="text-3xl font-bold">Admin Dashboard</h1>
             <p className="text-muted-foreground">Faculty Rating System Analytics</p>
           </div>
-          <Button onClick={handleLogout} variant="outline" className="flex items-center gap-2">
-            <LogOut className="w-4 h-4" />
-            Logout
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => navigate("/auth")} variant="outline">
+              Back to Auth
+            </Button>
+            <Button onClick={handleLogout} variant="outline" className="flex items-center gap-2">
+              <LogOut className="w-4 h-4" />
+              Logout
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -293,138 +306,157 @@ const AdminDashboard = () => {
           </Card>
         </div>
 
-        {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Faculty Performance Chart */}
+        {facultyRatings.length === 0 ? (
           <Card>
-            <CardHeader>
-              <CardTitle>Faculty Performance Overview</CardTitle>
-              <CardDescription>Overall ratings by faculty member</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={facultyPerformanceData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis domain={[0, 5]} />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="overall" fill="#8884d8" name="Overall Rating" />
-                </BarChart>
-              </ResponsiveContainer>
+            <CardContent className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <h3 className="text-lg font-semibold mb-2">No Data Available</h3>
+                <p className="text-muted-foreground">No faculty ratings found in the database.</p>
+              </div>
             </CardContent>
           </Card>
+        ) : (
+          <>
+            {/* Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Faculty Performance Chart */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Faculty Performance Overview</CardTitle>
+                  <CardDescription>Overall ratings by faculty member</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={facultyPerformanceData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis domain={[0, 5]} />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="overall" fill="#8884d8" name="Overall Rating" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
 
-          {/* Department Performance */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Department Performance</CardTitle>
-              <CardDescription>Average ratings by department</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={departmentChartData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ department, avgRating }) => `${department}: ${avgRating.toFixed(1)}`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="avgRating"
-                  >
-                    {departmentChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Detailed Faculty Performance */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Detailed Faculty Performance</CardTitle>
-            <CardDescription>Performance breakdown by criteria</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={facultyPerformanceData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis domain={[0, 5]} />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="engagement" stroke="#8884d8" name="Engagement" />
-                <Line type="monotone" dataKey="communication" stroke="#82ca9d" name="Communication" />
-                <Line type="monotone" dataKey="pedagogy" stroke="#ffc658" name="Pedagogy" />
-                <Line type="monotone" dataKey="overall" stroke="#ff7300" name="Overall" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Faculty Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Faculty Ratings Summary</CardTitle>
-            <CardDescription>Detailed breakdown of all faculty ratings - Click "View Details" for comprehensive insights</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse border border-gray-200">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="border border-gray-200 px-4 py-2 text-left">Faculty Name</th>
-                    <th className="border border-gray-200 px-4 py-2 text-left">Department</th>
-                    <th className="border border-gray-200 px-4 py-2 text-center">Total Ratings</th>
-                    <th className="border border-gray-200 px-4 py-2 text-center">Overall Average</th>
-                    <th className="border border-gray-200 px-4 py-2 text-center">Engagement</th>
-                    <th className="border border-gray-200 px-4 py-2 text-center">Communication</th>
-                    <th className="border border-gray-200 px-4 py-2 text-center">Pedagogy</th>
-                    <th className="border border-gray-200 px-4 py-2 text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {facultyRatings.map((faculty) => (
-                    <tr key={faculty.faculty_id} className="hover:bg-gray-50">
-                      <td className="border border-gray-200 px-4 py-2 font-medium">{faculty.faculty_name}</td>
-                      <td className="border border-gray-200 px-4 py-2">{faculty.department}</td>
-                      <td className="border border-gray-200 px-4 py-2 text-center">{faculty.total_ratings}</td>
-                      <td className="border border-gray-200 px-4 py-2 text-center">
-                        <span className={`px-2 py-1 rounded text-sm ${
-                          faculty.overall_average >= 4 ? 'bg-green-100 text-green-800' :
-                          faculty.overall_average >= 3 ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          {faculty.overall_average.toFixed(1)}
-                        </span>
-                      </td>
-                      <td className="border border-gray-200 px-4 py-2 text-center">{faculty.avg_engagement.toFixed(1)}</td>
-                      <td className="border border-gray-200 px-4 py-2 text-center">{faculty.avg_communication_skills.toFixed(1)}</td>
-                      <td className="border border-gray-200 px-4 py-2 text-center">{faculty.avg_pedagogy_techniques_tools.toFixed(1)}</td>
-                      <td className="border border-gray-200 px-4 py-2 text-center">
-                        <Button
-                          onClick={() => handleViewFacultyDetail(faculty.faculty_id)}
-                          size="sm"
-                          variant="outline"
-                          className="flex items-center gap-1"
+              {/* Department Performance */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Department Performance</CardTitle>
+                  <CardDescription>Average ratings by department</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {departmentChartData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <PieChart>
+                        <Pie
+                          data={departmentChartData}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ department, avgRating }) => `${department}: ${avgRating.toFixed(1)}`}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="avgRating"
                         >
-                          <Eye className="w-3 h-3" />
-                          View Details
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                          {departmentChartData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex items-center justify-center h-64">
+                      <p className="text-muted-foreground">No department data available</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
+
+            {/* Detailed Faculty Performance */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Detailed Faculty Performance</CardTitle>
+                <CardDescription>Performance breakdown by criteria</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={400}>
+                  <LineChart data={facultyPerformanceData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis domain={[0, 5]} />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="engagement" stroke="#8884d8" name="Engagement" />
+                    <Line type="monotone" dataKey="communication" stroke="#82ca9d" name="Communication" />
+                    <Line type="monotone" dataKey="pedagogy" stroke="#ffc658" name="Pedagogy" />
+                    <Line type="monotone" dataKey="overall" stroke="#ff7300" name="Overall" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Faculty Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Faculty Ratings Summary</CardTitle>
+                <CardDescription>Detailed breakdown of all faculty ratings - Click "View Details" for comprehensive insights</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse border border-gray-200">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="border border-gray-200 px-4 py-2 text-left">Faculty Name</th>
+                        <th className="border border-gray-200 px-4 py-2 text-left">Department</th>
+                        <th className="border border-gray-200 px-4 py-2 text-center">Total Ratings</th>
+                        <th className="border border-gray-200 px-4 py-2 text-center">Overall Average</th>
+                        <th className="border border-gray-200 px-4 py-2 text-center">Engagement</th>
+                        <th className="border border-gray-200 px-4 py-2 text-center">Communication</th>
+                        <th className="border border-gray-200 px-4 py-2 text-center">Pedagogy</th>
+                        <th className="border border-gray-200 px-4 py-2 text-center">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {facultyRatings.map((faculty) => (
+                        <tr key={faculty.faculty_id} className="hover:bg-gray-50">
+                          <td className="border border-gray-200 px-4 py-2 font-medium">{faculty.faculty_name}</td>
+                          <td className="border border-gray-200 px-4 py-2">{faculty.department}</td>
+                          <td className="border border-gray-200 px-4 py-2 text-center">{faculty.total_ratings}</td>
+                          <td className="border border-gray-200 px-4 py-2 text-center">
+                            <span className={`px-2 py-1 rounded text-sm ${
+                              faculty.overall_average >= 4 ? 'bg-green-100 text-green-800' :
+                              faculty.overall_average >= 3 ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {faculty.overall_average.toFixed(1)}
+                            </span>
+                          </td>
+                          <td className="border border-gray-200 px-4 py-2 text-center">{faculty.avg_engagement.toFixed(1)}</td>
+                          <td className="border border-gray-200 px-4 py-2 text-center">{faculty.avg_communication_skills.toFixed(1)}</td>
+                          <td className="border border-gray-200 px-4 py-2 text-center">{faculty.avg_pedagogy_techniques_tools.toFixed(1)}</td>
+                          <td className="border border-gray-200 px-4 py-2 text-center">
+                            <Button
+                              onClick={() => handleViewFacultyDetail(faculty.faculty_id)}
+                              size="sm"
+                              variant="outline"
+                              className="flex items-center gap-1"
+                            >
+                              <Eye className="w-3 h-3" />
+                              View Details
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
     </div>
   );
