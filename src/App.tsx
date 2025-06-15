@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,6 +13,7 @@ import Rate from "./pages/Rate";
 import Ratings from "./pages/Ratings";
 import StudentDashboard from "./pages/StudentDashboard";
 import StudentRate from "./pages/StudentRate";
+import AdminDashboard from "./pages/AdminDashboard";
 
 const queryClient = new QueryClient();
 
@@ -25,11 +27,12 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/admin-dashboard" element={<AdminDashboard />} />
           <Route path="/faculty" element={<Faculty />} />
           <Route path="/rate" element={<Rate />} />
           <Route path="/ratings" element={<Ratings />} />
 
-          {/* --- NEW STUDENT DASHBOARD AND RATING FLOW --- */}
+          {/* Student Dashboard and Rating Flow */}
           <Route path="/student-dashboard" element={<StudentDashboard />} />
           <Route path="/student-dashboard/rate" element={<StudentRate />} />
           

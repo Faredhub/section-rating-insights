@@ -13,73 +13,13 @@ const Dashboard = () => {
   const { user, loading } = useSupabaseAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [stats, setStats] = useState({
-    totalFaculty: 0,
-    totalRatings: 0,
-    departments: 0,
-    averageRating: 0
-  });
 
+  // Redirect to admin dashboard immediately
   useEffect(() => {
-    if (!loading && !user) {
-      navigate("/auth");
+    if (!loading) {
+      navigate("/admin-dashboard");
     }
-  }, [user, loading, navigate]);
-
-  useEffect(() => {
-    if (user) {
-      fetchStats();
-    }
-  }, [user]);
-
-  const fetchStats = async () => {
-    try {
-      // Get faculty count
-      const { count: facultyCount } = await supabase
-        .from("faculty")
-        .select("*", { count: "exact", head: true });
-
-      // Get ratings count
-      const { count: ratingsCount } = await supabase
-        .from("ratings")
-        .select("*", { count: "exact", head: true });
-
-      // Get unique departments
-      const { data: facultyData } = await supabase
-        .from("faculty")
-        .select("department");
-
-      const uniqueDepartments = new Set(facultyData?.map(f => f.department) || []).size;
-
-      // Get average rating
-      const { data: avgData } = await supabase
-        .from("ratings")
-        .select("rating");
-
-      const avgRating = avgData && avgData.length > 0 
-        ? avgData.reduce((sum, r) => sum + r.rating, 0) / avgData.length 
-        : 0;
-
-      setStats({
-        totalFaculty: facultyCount || 0,
-        totalRatings: ratingsCount || 0,
-        departments: uniqueDepartments,
-        averageRating: Number(avgRating.toFixed(1))
-      });
-    } catch (error) {
-      console.error("Error fetching stats:", error);
-    }
-  };
-
-  const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast({ title: "Error logging out", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Logged out successfully" });
-      navigate("/auth");
-    }
-  };
+  }, [loading, navigate]);
 
   if (loading) {
     return (
@@ -89,119 +29,7 @@ const Dashboard = () => {
     );
   }
 
-  if (!user) {
-    return null;
-  }
-
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-white dark:bg-zinc-900">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Faculty Ratings Dashboard</h1>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">Welcome, {user.email}</span>
-            <Button asChild variant="outline">
-              <Link to="/student-dashboard">Student Panel</Link>
-            </Button>
-            <Button asChild variant="outline" className="ml-2">
-              <Link to="/admin-dashboard">Admin</Link>
-            </Button>
-            <Button onClick={handleLogout} variant="outline">Logout</Button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Faculty</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalFaculty}</div>
-              <p className="text-xs text-muted-foreground">Faculty members registered</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Ratings</CardTitle>
-              <Star className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalRatings}</div>
-              <p className="text-xs text-muted-foreground">Ratings submitted</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Departments</CardTitle>
-              <BookOpen className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.departments}</div>
-              <p className="text-xs text-muted-foreground">Academic departments</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Average Rating</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.averageRating}</div>
-              <p className="text-xs text-muted-foreground">Out of 5 stars</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-            <CardHeader>
-              <CardTitle>Manage Faculty</CardTitle>
-              <CardDescription>Add, edit, or remove faculty members</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild className="w-full">
-                <Link to="/faculty">Manage Faculty</Link>
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-            <CardHeader>
-              <CardTitle>Rate Faculty</CardTitle>
-              <CardDescription>Submit ratings for faculty members</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild className="w-full">
-                <Link to="/rate">Rate Faculty</Link>
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-            <CardHeader>
-              <CardTitle>View Ratings</CardTitle>
-              <CardDescription>Browse faculty ratings and reviews</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button asChild className="w-full">
-                <Link to="/ratings">View Ratings</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </main>
-    </div>
-  );
+  return null; // This component now just redirects
 };
 
 export default Dashboard;
