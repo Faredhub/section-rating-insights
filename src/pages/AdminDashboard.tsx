@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Users, Star, BookOpen, TrendingUp, LogOut, Eye, Award, Target, BarChart3, Plus } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ComposedChart, Area, AreaChart } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, ComposedChart, Area, AreaChart } from "recharts";
 import FacultyPerformanceDetail from "@/components/FacultyPerformanceDetail";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -43,12 +43,19 @@ interface FacultyRating {
   avg_class_decorum: number;
   avg_teaching_aids: number;
   overall_average: number;
+  subjects_taught?: string[];
+  feedbacks?: string[];
+  consistency_score?: number;
+  improvement_trend?: number;
+  student_satisfaction?: string;
 }
 
 interface PerformanceTrend {
   month: string;
   totalRatings: number;
   avgRating: number;
+  avgEngagement?: number;
+  avgSatisfaction?: number;
 }
 
 interface DepartmentInsight {
@@ -58,6 +65,8 @@ interface DepartmentInsight {
   avgRating: number;
   topPerformer: string;
   improvementNeeded: number;
+  excellentPerformers?: number;
+  participationRate?: number;
 }
 
 const AdminDashboard = () => {
@@ -220,10 +229,8 @@ const AdminDashboard = () => {
             total_ratings: faculty.ratings.length,
             subjects_taught: Array.from(faculty.subjects),
             feedbacks: faculty.feedbacks,
-            monthly_trends: faculty.monthlyRatings,
             ...criteriaAverages,
             overall_average: overallAverage,
-            // Performance insights
             consistency_score: faculty.ratings.length > 1 
               ? 5 - (faculty.ratings.reduce((acc, rating, i, arr) => 
                   i === 0 ? 0 : acc + Math.abs(rating - arr[i-1]), 0) / (faculty.ratings.length - 1))
@@ -241,7 +248,7 @@ const AdminDashboard = () => {
         console.log("Processed faculty ratings:", processedFacultyRatings);
         setFacultyRatings(processedFacultyRatings);
 
-        // Enhanced performance trends calculation
+        // Generate performance trends from current year (2025)
         const trendMap = new Map<string, { total: number; count: number; sum: number; engagement: number; satisfaction: number }>();
         ratingsData?.forEach((rating) => {
           const month = new Date(rating.created_at).toLocaleDateString('en-US', { 
@@ -279,13 +286,12 @@ const AdminDashboard = () => {
 
         setPerformanceTrends(trends);
 
-        // Enhanced department insights calculation
+        // Calculate department insights
         const deptMap = new Map<string, {
           facultyIds: Set<string>;
           totalRatings: number;
           totalScore: number;
           facultyScores: { [key: string]: { name: string; score: number; ratings: number; subjects: string[] } };
-          monthlyProgress: { [month: string]: number[] };
         }>();
 
         processedFacultyRatings.forEach((faculty) => {
@@ -294,8 +300,7 @@ const AdminDashboard = () => {
               facultyIds: new Set(),
               totalRatings: 0,
               totalScore: 0,
-              facultyScores: {},
-              monthlyProgress: {}
+              facultyScores: {}
             });
           }
           
@@ -327,7 +332,7 @@ const AdminDashboard = () => {
             topPerformer: topPerformer?.name || 'N/A',
             improvementNeeded,
             excellentPerformers,
-            participationRate: Math.round((data.totalRatings / data.facultyIds.size) * 10) // Estimated
+            participationRate: Math.round((data.totalRatings / data.facultyIds.size) * 10)
           };
         });
 
@@ -387,7 +392,9 @@ const AdminDashboard = () => {
 
   const handleAddFaculty = async (values: z.infer<typeof facultyFormSchema>) => {
     try {
-      // Insert faculty
+      console.log("Adding faculty with values:", values);
+      
+      // First insert faculty with admin privileges
       const { data: facultyData, error: facultyError } = await supabase
         .from("faculty")
         .insert({
@@ -399,7 +406,12 @@ const AdminDashboard = () => {
         .select()
         .single();
 
-      if (facultyError) throw facultyError;
+      if (facultyError) {
+        console.error("Faculty insert error:", facultyError);
+        throw facultyError;
+      }
+
+      console.log("Faculty inserted:", facultyData);
 
       // Create faculty assignment
       const { error: assignmentError } = await supabase
@@ -410,7 +422,10 @@ const AdminDashboard = () => {
           subject_id: values.subjectId,
         });
 
-      if (assignmentError) throw assignmentError;
+      if (assignmentError) {
+        console.error("Assignment error:", assignmentError);
+        throw assignmentError;
+      }
 
       toast({
         title: "Success",
@@ -466,18 +481,18 @@ const AdminDashboard = () => {
     );
   }
 
-  // Enhanced sample data with more insights
+  // Sample data for charts when no real data is available
   const sampleFacultyData = facultyRatings.length > 0 ? facultyRatings.map(faculty => ({
     name: faculty.faculty_name.split(' ').slice(-1)[0],
     overall: Number(faculty.overall_average.toFixed(1)),
     engagement: Number(faculty.avg_engagement.toFixed(1)),
     communication: Number(faculty.avg_communication_skills.toFixed(1)),
     pedagogy: Number(faculty.avg_pedagogy_techniques_tools.toFixed(1)),
-    consistency: Number(faculty.consistency_score?.toFixed(1) || 0),
+    consistency: Number((faculty.consistency_score || 0).toFixed(1)),
     ratings: faculty.total_ratings,
     department: faculty.department,
     satisfaction: faculty.student_satisfaction,
-    subjects: faculty.subjects_taught?.length || 0
+    subjects: (faculty.subjects_taught || []).length
   })) : [
     { name: "Dr. Smith", overall: 4.2, engagement: 4.5, communication: 4.0, pedagogy: 4.1, consistency: 4.3, ratings: 15, department: "Computer Science", satisfaction: "Good", subjects: 2 },
     { name: "Prof. Johnson", overall: 3.8, engagement: 3.9, communication: 3.7, pedagogy: 3.8, consistency: 3.9, ratings: 12, department: "Mathematics", satisfaction: "Average", subjects: 1 },
@@ -485,7 +500,8 @@ const AdminDashboard = () => {
     { name: "Prof. Brown", overall: 3.5, engagement: 3.6, communication: 3.4, pedagogy: 3.5, consistency: 3.7, ratings: 8, department: "Chemistry", satisfaction: "Needs Improvement", subjects: 1 },
   ];
 
-  // Enhanced trend data with more metrics
+  // Sample trend data for 2025
+  const currentYear = new Date().getFullYear();
   const sampleTrendData = performanceTrends.length > 0 ? performanceTrends.map((trend, index) => ({
     month: trend.month,
     performance: Number(trend.avgRating.toFixed(1)),
@@ -494,14 +510,14 @@ const AdminDashboard = () => {
     satisfaction: Number((trend.avgSatisfaction || trend.avgRating * 1.1).toFixed(1)),
     growth: index > 0 ? Number(((trend.avgRating - performanceTrends[index-1].avgRating) * 100).toFixed(1)) : 0
   })) : [
-    { month: "Jan 2024", performance: 4.1, participation: 85, engagement: 4.0, satisfaction: 4.2, growth: 0 },
-    { month: "Feb 2024", performance: 4.3, participation: 92, engagement: 4.2, satisfaction: 4.4, growth: 4.9 },
-    { month: "Mar 2024", performance: 4.0, participation: 78, engagement: 3.9, satisfaction: 4.1, growth: -7.0 },
-    { month: "Apr 2024", performance: 4.4, participation: 95, engagement: 4.3, satisfaction: 4.5, growth: 10.0 },
-    { month: "May 2024", performance: 4.2, participation: 88, engagement: 4.1, satisfaction: 4.3, growth: -4.5 },
+    { month: `Jan ${currentYear}`, performance: 4.1, participation: 85, engagement: 4.0, satisfaction: 4.2, growth: 0 },
+    { month: `Feb ${currentYear}`, performance: 4.3, participation: 92, engagement: 4.2, satisfaction: 4.4, growth: 4.9 },
+    { month: `Mar ${currentYear}`, performance: 4.0, participation: 78, engagement: 3.9, satisfaction: 4.1, growth: -7.0 },
+    { month: `Apr ${currentYear}`, performance: 4.4, participation: 95, engagement: 4.3, satisfaction: 4.5, growth: 10.0 },
+    { month: `May ${currentYear}`, performance: 4.2, participation: 88, engagement: 4.1, satisfaction: 4.3, growth: -4.5 },
   ];
 
-  // Enhanced performance distribution
+  // Performance distribution
   const performanceCategories = facultyRatings.length > 0 ? [
     { 
       name: 'Excellent (4.5+)', 
@@ -538,7 +554,7 @@ const AdminDashboard = () => {
     { name: 'Needs Improvement (<3.5)', value: 1, fill: '#ef4444', percentage: 5, description: 'Needs support' }
   ];
 
-  // Enhanced department analysis
+  // Department analysis
   const departmentAnalysis = departmentInsights.length > 0 ? departmentInsights.map(dept => ({
     name: dept.department,
     score: Number(dept.avgRating.toFixed(1)),
@@ -554,7 +570,7 @@ const AdminDashboard = () => {
     { name: "Chemistry", score: 3.8, faculty: 4, efficiency: 75, excellent: 1, needsImprovement: 1, participation: 72 },
   ];
 
-  // Key performance indicators with enhanced metrics
+  // KPIs
   const overallAverage = facultyRatings.length > 0 
     ? facultyRatings.reduce((sum, f) => sum + f.overall_average, 0) / facultyRatings.length 
     : 4.1;
@@ -586,7 +602,7 @@ const AdminDashboard = () => {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold">Enhanced Faculty Performance Analytics Dashboard</h1>
-            <p className="text-muted-foreground">Comprehensive Faculty Rating System with Advanced Analytics & Actionable Insights</p>
+            <p className="text-muted-foreground">Comprehensive Faculty Rating System with Real-time Analytics & Actionable Insights - {currentYear}</p>
           </div>
           <div className="flex gap-2">
             <Dialog open={isAddFacultyOpen} onOpenChange={setIsAddFacultyOpen}>
@@ -749,7 +765,7 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Enhanced KPI Dashboard */}
+        {/* KPI Dashboard */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -807,7 +823,7 @@ const AdminDashboard = () => {
           </Card>
         </div>
 
-        {/* Enhanced Performance Indicators */}
+        {/* Performance Indicators */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -865,15 +881,15 @@ const AdminDashboard = () => {
           </Card>
         </div>
 
-        {/* Enhanced Analytics Charts - Always visible */}
+        {/* Analytics Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="w-5 h-5" />
-                Enhanced Performance Trend Analysis
+                Performance Trend Analysis {currentYear}
               </CardTitle>
-              <CardDescription>Monthly faculty performance, engagement, satisfaction with growth indicators</CardDescription>
+              <CardDescription>Monthly faculty performance with real-time data</CardDescription>
             </CardHeader>
             <CardContent>
               <ChartContainer config={chartConfig} className="h-[400px]">
@@ -897,9 +913,9 @@ const AdminDashboard = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="w-5 h-5" />
-                Enhanced Performance Distribution
+                Performance Distribution
               </CardTitle>
-              <CardDescription>Faculty performance categories with actionable insights</CardDescription>
+              <CardDescription>Faculty performance categories with insights</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 gap-3 mb-4">
@@ -951,14 +967,14 @@ const AdminDashboard = () => {
           </Card>
         </div>
 
-        {/* Enhanced Faculty Performance Comparison Chart */}
+        {/* Faculty Performance Comparison Chart */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="w-5 h-5" />
-              Comprehensive Faculty Performance Analysis
+              Faculty Performance Analysis
             </CardTitle>
-            <CardDescription>Individual faculty performance across multiple criteria including consistency scores</CardDescription>
+            <CardDescription>Individual faculty performance across multiple criteria</CardDescription>
           </CardHeader>
           <CardContent>
             <ChartContainer config={chartConfig} className="h-[450px]">
@@ -989,11 +1005,11 @@ const AdminDashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Enhanced Department Performance Analysis */}
+        {/* Department Performance Analysis */}
         <Card>
           <CardHeader>
-            <CardTitle>Advanced Department Performance Overview</CardTitle>
-            <CardDescription>Comprehensive department-wise analysis with excellence indicators and improvement metrics</CardDescription>
+            <CardTitle>Department Performance Overview</CardTitle>
+            <CardDescription>Department-wise analysis with excellence indicators</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1045,12 +1061,12 @@ const AdminDashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Enhanced Faculty Ratings Summary Table */}
+        {/* Faculty Ratings Summary Table */}
         {facultyRatings.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Comprehensive Faculty Performance Dashboard</CardTitle>
-              <CardDescription>Complete faculty analytics with performance trends, satisfaction levels, and actionable insights</CardDescription>
+              <CardTitle>Faculty Performance Dashboard</CardTitle>
+              <CardDescription>Complete faculty analytics with performance trends and actionable insights</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -1092,17 +1108,17 @@ const AdminDashboard = () => {
                               {faculty.total_ratings} ratings
                             </div>
                             <div className="text-xs">
-                              Consistency: {faculty.consistency_score?.toFixed(1) || 'N/A'}
+                              Consistency: {(faculty.consistency_score || 0).toFixed(1)}
                             </div>
                           </div>
                         </td>
                         <td className="border border-gray-200 px-4 py-2 text-center">
                           <div className="text-sm">
-                            {faculty.subjects_taught?.length || 0} subjects
+                            {(faculty.subjects_taught || []).length} subjects
                           </div>
                           <div className="text-xs text-gray-500">
-                            {faculty.subjects_taught?.slice(0, 2).join(', ')}
-                            {faculty.subjects_taught?.length > 2 && '...'}
+                            {(faculty.subjects_taught || []).slice(0, 2).join(', ')}
+                            {(faculty.subjects_taught || []).length > 2 && '...'}
                           </div>
                         </td>
                         <td className="border border-gray-200 px-4 py-2 text-center">
@@ -1110,7 +1126,7 @@ const AdminDashboard = () => {
                             {faculty.student_satisfaction}
                           </div>
                           <div className="text-xs text-gray-500">
-                            {faculty.feedbacks?.length || 0} feedback comments
+                            {(faculty.feedbacks || []).length} feedback comments
                           </div>
                         </td>
                         <td className="border border-gray-200 px-4 py-2 text-center">
