@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useSupabaseAuth } from "@/hooks/useSupabaseAuth";
 import { useNavigate } from "react-router-dom";
@@ -6,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Star, BookOpen, TrendingUp, LogOut } from "lucide-react";
+import { Users, Star, BookOpen, TrendingUp, LogOut, Eye } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
+import FacultyPerformanceDetail from "@/components/FacultyPerformanceDetail";
 
 interface FacultyRating {
   faculty_id: string;
@@ -35,6 +35,7 @@ const AdminDashboard = () => {
   const [totalFaculty, setTotalFaculty] = useState(0);
   const [totalRatings, setTotalRatings] = useState(0);
   const [loadingData, setLoadingData] = useState(true);
+  const [selectedFacultyId, setSelectedFacultyId] = useState<string | null>(null);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -171,10 +172,32 @@ const AdminDashboard = () => {
     navigate("/auth");
   };
 
+  const handleViewFacultyDetail = (facultyId: string) => {
+    setSelectedFacultyId(facultyId);
+  };
+
+  const handleBackToOverview = () => {
+    setSelectedFacultyId(null);
+  };
+
   if (loading || loadingData) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-lg text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  // Show detailed faculty view if selected
+  if (selectedFacultyId) {
+    return (
+      <div className="min-h-screen bg-background p-6">
+        <div className="max-w-7xl mx-auto">
+          <FacultyPerformanceDetail 
+            facultyId={selectedFacultyId} 
+            onBack={handleBackToOverview}
+          />
+        </div>
       </div>
     );
   }
@@ -349,7 +372,7 @@ const AdminDashboard = () => {
         <Card>
           <CardHeader>
             <CardTitle>Faculty Ratings Summary</CardTitle>
-            <CardDescription>Detailed breakdown of all faculty ratings</CardDescription>
+            <CardDescription>Detailed breakdown of all faculty ratings - Click "View Details" for comprehensive insights</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
@@ -363,6 +386,7 @@ const AdminDashboard = () => {
                     <th className="border border-gray-200 px-4 py-2 text-center">Engagement</th>
                     <th className="border border-gray-200 px-4 py-2 text-center">Communication</th>
                     <th className="border border-gray-200 px-4 py-2 text-center">Pedagogy</th>
+                    <th className="border border-gray-200 px-4 py-2 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -383,6 +407,17 @@ const AdminDashboard = () => {
                       <td className="border border-gray-200 px-4 py-2 text-center">{faculty.avg_engagement.toFixed(1)}</td>
                       <td className="border border-gray-200 px-4 py-2 text-center">{faculty.avg_communication_skills.toFixed(1)}</td>
                       <td className="border border-gray-200 px-4 py-2 text-center">{faculty.avg_pedagogy_techniques_tools.toFixed(1)}</td>
+                      <td className="border border-gray-200 px-4 py-2 text-center">
+                        <Button
+                          onClick={() => handleViewFacultyDetail(faculty.faculty_id)}
+                          size="sm"
+                          variant="outline"
+                          className="flex items-center gap-1"
+                        >
+                          <Eye className="w-3 h-3" />
+                          View Details
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
