@@ -4,11 +4,28 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Star, BookOpen, TrendingUp, LogOut, Eye, Award, Target, BarChart3 } from "lucide-react";
+import { Users, Star, BookOpen, TrendingUp, LogOut, Eye, Award, Target, BarChart3, Plus } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ComposedChart, Area, AreaChart } from "recharts";
 import FacultyPerformanceDetail from "@/components/FacultyPerformanceDetail";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+
+const facultyFormSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Invalid email address"),
+  department: z.string().min(1, "Department is required"),
+  position: z.string().min(1, "Position is required"),
+  semesterId: z.string().min(1, "Semester is required"),
+  sectionId: z.string().min(1, "Section is required"),
+  subjectId: z.string().min(1, "Subject is required"),
+});
 
 interface FacultyRating {
   faculty_id: string;
@@ -53,6 +70,24 @@ const AdminDashboard = () => {
   const [totalRatings, setTotalRatings] = useState(0);
   const [loadingData, setLoadingData] = useState(true);
   const [selectedFacultyId, setSelectedFacultyId] = useState<string | null>(null);
+  const [isAddFacultyOpen, setIsAddFacultyOpen] = useState(false);
+  const [years, setYears] = useState<any[]>([]);
+  const [semesters, setSemesters] = useState<any[]>([]);
+  const [sections, setSections] = useState<any[]>([]);
+  const [subjects, setSubjects] = useState<any[]>([]);
+
+  const form = useForm<z.infer<typeof facultyFormSchema>>({
+    resolver: zodResolver(facultyFormSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      department: "",
+      position: "",
+      semesterId: "",
+      sectionId: "",
+      subjectId: "",
+    },
+  });
 
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -264,8 +299,72 @@ const AdminDashboard = () => {
       }
     };
 
+    const fetchFormData = async () => {
+      try {
+        const { data: yearsData } = await supabase.from("years").select("*");
+        const { data: semestersData } = await supabase.from("semesters").select("*");
+        const { data: sectionsData } = await supabase.from("sections").select("*");
+        const { data: subjectsData } = await supabase.from("subjects").select("*");
+
+        setYears(yearsData || []);
+        setSemesters(semestersData || []);
+        setSections(sectionsData || []);
+        setSubjects(subjectsData || []);
+      } catch (error) {
+        console.error("Error fetching form data:", error);
+      }
+    };
+
     fetchAnalytics();
+    fetchFormData();
   }, [toast]);
+
+  const handleAddFaculty = async (values: z.infer<typeof facultyFormSchema>) => {
+    try {
+      // Insert faculty
+      const { data: facultyData, error: facultyError } = await supabase
+        .from("faculty")
+        .insert({
+          name: values.name,
+          email: values.email,
+          department: values.department,
+          position: values.position,
+        })
+        .select()
+        .single();
+
+      if (facultyError) throw facultyError;
+
+      // Create faculty assignment
+      const { error: assignmentError } = await supabase
+        .from("faculty_assignments")
+        .insert({
+          faculty_id: facultyData.id,
+          section_id: values.sectionId,
+          subject_id: values.subjectId,
+        });
+
+      if (assignmentError) throw assignmentError;
+
+      toast({
+        title: "Success",
+        description: "Faculty added successfully!",
+      });
+
+      setIsAddFacultyOpen(false);
+      form.reset();
+      
+      // Refresh the data
+      window.location.reload();
+    } catch (error: any) {
+      console.error("Error adding faculty:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to add faculty",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -386,6 +485,156 @@ const AdminDashboard = () => {
             <p className="text-muted-foreground">Comprehensive Faculty Rating System Analytics & Visual Insights</p>
           </div>
           <div className="flex gap-2">
+            <Dialog open={isAddFacultyOpen} onOpenChange={setIsAddFacultyOpen}>
+              <DialogTrigger asChild>
+                <Button className="flex items-center gap-2">
+                  <Plus className="w-4 h-4" />
+                  Add Faculty
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Add New Faculty</DialogTitle>
+                  <DialogDescription>
+                    Add a new faculty member with their assignment details.
+                  </DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(handleAddFaculty)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Faculty Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter faculty name" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter email address" type="email" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="department"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Department</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter department" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="position"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Position</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Enter position (e.g., Professor, Assistant Professor)" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="semesterId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Assigned Semester</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select semester" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {semesters.map((semester) => (
+                                <SelectItem key={semester.id} value={semester.id}>
+                                  {semester.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="sectionId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Assigned Section</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select section" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {sections.map((section) => (
+                                <SelectItem key={section.id} value={section.id}>
+                                  {section.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="subjectId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Assigned Subject</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select subject" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {subjects.map((subject) => (
+                                <SelectItem key={subject.id} value={subject.id}>
+                                  {subject.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <DialogFooter>
+                      <Button type="button" variant="outline" onClick={() => setIsAddFacultyOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button type="submit">Add Faculty</Button>
+                    </DialogFooter>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
             <Button onClick={() => navigate("/auth")} variant="outline">
               Back to Auth
             </Button>
