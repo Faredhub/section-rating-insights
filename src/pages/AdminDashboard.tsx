@@ -6,7 +6,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLe
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Users, Star, BookOpen, TrendingUp, LogOut, Eye, Award, Target, BarChart3 } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ComposedChart, Area, AreaChart } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ComposedChart, Area, AreaChart } from "recharts";
 import FacultyPerformanceDetail from "@/components/FacultyPerformanceDetail";
 
 interface FacultyRating {
@@ -308,25 +308,50 @@ const AdminDashboard = () => {
     );
   }
 
-  // Prepare chart data with proper configuration
+  // Enhanced chart data preparation
   const facultyPerformanceData = facultyRatings.map(faculty => ({
-    name: faculty.faculty_name.split(' ').slice(-1)[0], // Last name only
-    overall: faculty.overall_average,
-    engagement: faculty.avg_engagement,
-    communication: faculty.avg_communication_skills,
-    pedagogy: faculty.avg_pedagogy_techniques_tools,
-    ratings: faculty.total_ratings
+    name: faculty.faculty_name.split(' ').slice(-1)[0],
+    overall: Number(faculty.overall_average.toFixed(1)),
+    engagement: Number(faculty.avg_engagement.toFixed(1)),
+    communication: Number(faculty.avg_communication_skills.toFixed(1)),
+    pedagogy: Number(faculty.avg_pedagogy_techniques_tools.toFixed(1)),
+    ratings: faculty.total_ratings,
+    department: faculty.department
   }));
 
   const criteriaComparisonData = [
-    { criteria: 'Engagement', average: facultyRatings.length > 0 ? facultyRatings.reduce((sum, f) => sum + f.avg_engagement, 0) / facultyRatings.length : 0 },
-    { criteria: 'Understanding', average: facultyRatings.length > 0 ? facultyRatings.reduce((sum, f) => sum + f.avg_concept_understanding, 0) / facultyRatings.length : 0 },
-    { criteria: 'Content Depth', average: facultyRatings.length > 0 ? facultyRatings.reduce((sum, f) => sum + f.avg_content_spread_depth, 0) / facultyRatings.length : 0 },
-    { criteria: 'Application', average: facultyRatings.length > 0 ? facultyRatings.reduce((sum, f) => sum + f.avg_application_oriented_teaching, 0) / facultyRatings.length : 0 },
-    { criteria: 'Pedagogy', average: facultyRatings.length > 0 ? facultyRatings.reduce((sum, f) => sum + f.avg_pedagogy_techniques_tools, 0) / facultyRatings.length : 0 },
-    { criteria: 'Communication', average: facultyRatings.length > 0 ? facultyRatings.reduce((sum, f) => sum + f.avg_communication_skills, 0) / facultyRatings.length : 0 },
-    { criteria: 'Decorum', average: facultyRatings.length > 0 ? facultyRatings.reduce((sum, f) => sum + f.avg_class_decorum, 0) / facultyRatings.length : 0 },
-    { criteria: 'Teaching Aids', average: facultyRatings.length > 0 ? facultyRatings.reduce((sum, f) => sum + f.avg_teaching_aids, 0) / facultyRatings.length : 0 }
+    { 
+      criteria: 'Engagement', 
+      average: facultyRatings.length > 0 ? Number((facultyRatings.reduce((sum, f) => sum + f.avg_engagement, 0) / facultyRatings.length).toFixed(1)) : 0 
+    },
+    { 
+      criteria: 'Understanding', 
+      average: facultyRatings.length > 0 ? Number((facultyRatings.reduce((sum, f) => sum + f.avg_concept_understanding, 0) / facultyRatings.length).toFixed(1)) : 0 
+    },
+    { 
+      criteria: 'Content Depth', 
+      average: facultyRatings.length > 0 ? Number((facultyRatings.reduce((sum, f) => sum + f.avg_content_spread_depth, 0) / facultyRatings.length).toFixed(1)) : 0 
+    },
+    { 
+      criteria: 'Application', 
+      average: facultyRatings.length > 0 ? Number((facultyRatings.reduce((sum, f) => sum + f.avg_application_oriented_teaching, 0) / facultyRatings.length).toFixed(1)) : 0 
+    },
+    { 
+      criteria: 'Pedagogy', 
+      average: facultyRatings.length > 0 ? Number((facultyRatings.reduce((sum, f) => sum + f.avg_pedagogy_techniques_tools, 0) / facultyRatings.length).toFixed(1)) : 0 
+    },
+    { 
+      criteria: 'Communication', 
+      average: facultyRatings.length > 0 ? Number((facultyRatings.reduce((sum, f) => sum + f.avg_communication_skills, 0) / facultyRatings.length).toFixed(1)) : 0 
+    },
+    { 
+      criteria: 'Decorum', 
+      average: facultyRatings.length > 0 ? Number((facultyRatings.reduce((sum, f) => sum + f.avg_class_decorum, 0) / facultyRatings.length).toFixed(1)) : 0 
+    },
+    { 
+      criteria: 'Teaching Aids', 
+      average: facultyRatings.length > 0 ? Number((facultyRatings.reduce((sum, f) => sum + f.avg_teaching_aids, 0) / facultyRatings.length).toFixed(1)) : 0 
+    }
   ];
 
   // Performance distribution for pie chart
@@ -337,47 +362,49 @@ const AdminDashboard = () => {
     { name: 'Needs Improvement (<3.5)', value: facultyRatings.filter(f => f.overall_average < 3.5).length, fill: '#ef4444' }
   ];
 
-  // Faculty ranking data for top/bottom performers
-  const topPerformers = facultyRatings
-    .slice() // copy to avoid mutating original
+  // Department performance data
+  const departmentPerformanceData = departmentInsights.map(dept => ({
+    department: dept.department,
+    avgRating: Number(dept.avgRating.toFixed(1)),
+    facultyCount: dept.facultyCount,
+    totalRatings: dept.totalRatings,
+    improvementNeeded: dept.improvementNeeded
+  }));
+
+  // Faculty ranking data for radar chart
+  const topFacultyRadarData = facultyRatings
+    .slice()
     .sort((a, b) => b.overall_average - a.overall_average)
     .slice(0, 5)
-    .map((faculty, index) => ({
-      rank: index + 1,
-      name: faculty.faculty_name,
-      department: faculty.department,
-      score: faculty.overall_average,
-      ratings: faculty.total_ratings
+    .map(faculty => ({
+      faculty: faculty.faculty_name.split(' ').slice(-1)[0],
+      engagement: faculty.avg_engagement,
+      understanding: faculty.avg_concept_understanding,
+      pedagogy: faculty.avg_pedagogy_techniques_tools,
+      communication: faculty.avg_communication_skills,
+      overall: faculty.overall_average
     }));
 
+  // Monthly trends enhanced
+  const monthlyTrendData = performanceTrends.map(trend => ({
+    month: trend.month,
+    totalRatings: trend.totalRatings,
+    avgRating: Number(trend.avgRating.toFixed(1))
+  }));
+
+  // Chart configuration
   const chartConfig = {
-    overall: {
-      label: "Overall Rating",
-      color: "#8884d8",
-    },
-    engagement: {
-      label: "Engagement",
-      color: "#82ca9d",
-    },
-    communication: {
-      label: "Communication",
-      color: "#ffc658",
-    },
-    pedagogy: {
-      label: "Pedagogy",
-      color: "#ff7c7c",
-    },
-    ratings: {
-      label: "Total Ratings",
-      color: "#8dd1e1",
-    },
-    average: {
-      label: "Average Score",
-      color: "#8884d8",
-    }
+    overall: { label: "Overall Rating", color: "#8884d8" },
+    engagement: { label: "Engagement", color: "#82ca9d" },
+    communication: { label: "Communication", color: "#ffc658" },
+    pedagogy: { label: "Pedagogy", color: "#ff7c7c" },
+    understanding: { label: "Understanding", color: "#8dd1e1" },
+    ratings: { label: "Total Ratings", color: "#d084d0" },
+    average: { label: "Average Score", color: "#8884d8" },
+    facultyCount: { label: "Faculty Count", color: "#82ca9d" }
   };
 
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D', '#FFC658', '#FF7C7C'];
+  const COLORS = ['#22c55e', '#3b82f6', '#eab308', '#ef4444', '#8b5cf6', '#f97316', '#06b6d4', '#84cc16'];
 
   const overallAverage = facultyRatings.length > 0 
     ? facultyRatings.reduce((sum, f) => sum + f.overall_average, 0) / facultyRatings.length 
@@ -392,8 +419,8 @@ const AdminDashboard = () => {
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-            <p className="text-muted-foreground">Faculty Rating System Analytics & Insights</p>
+            <h1 className="text-3xl font-bold">Faculty Performance Analytics Dashboard</h1>
+            <p className="text-muted-foreground">Comprehensive Faculty Rating System Analytics & Visual Insights</p>
           </div>
           <div className="flex gap-2">
             <Button onClick={() => navigate("/auth")} variant="outline">
@@ -502,39 +529,53 @@ const AdminDashboard = () => {
           </Card>
         ) : (
           <>
-            {/* Faculty Performance Overview & Distribution */}
+            {/* Enhanced Faculty Performance Visualization Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Faculty Performance Chart */}
+              {/* Faculty Performance Comparison Chart */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Faculty Performance Overview</CardTitle>
-                  <CardDescription>Overall ratings and participation by faculty</CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5" />
+                    Faculty Performance Comparison
+                  </CardTitle>
+                  <CardDescription>Overall ratings and participation metrics by faculty member</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ChartContainer config={chartConfig} className="h-[400px]">
-                    <ComposedChart data={facultyPerformanceData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis yAxisId="left" domain={[0, 5]} />
-                      <YAxis yAxisId="right" orientation="right" />
-                      <ChartTooltip content={<ChartTooltipContent />} />
+                    <ComposedChart data={facultyPerformanceData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                      <YAxis yAxisId="left" domain={[0, 5]} tick={{ fontSize: 12 }} />
+                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} />
+                      <ChartTooltip 
+                        content={<ChartTooltipContent 
+                          formatter={(value, name) => [
+                            typeof value === 'number' ? value.toFixed(1) : value, 
+                            name
+                          ]} 
+                        />} 
+                      />
                       <ChartLegend content={<ChartLegendContent />} />
-                      <Bar yAxisId="right" dataKey="ratings" fill="var(--color-ratings)" name="Total Ratings" />
-                      <Line yAxisId="left" type="monotone" dataKey="overall" stroke="var(--color-overall)" strokeWidth={2} name="Overall Rating" />
+                      <Bar yAxisId="right" dataKey="ratings" fill="#d084d0" name="Total Ratings" radius={[2, 2, 0, 0]} />
+                      <Line yAxisId="left" type="monotone" dataKey="overall" stroke="#8884d8" strokeWidth={3} name="Overall Rating" dot={{ r: 5 }} />
+                      <Line yAxisId="left" type="monotone" dataKey="engagement" stroke="#82ca9d" strokeWidth={2} name="Engagement" dot={{ r: 3 }} />
                     </ComposedChart>
                   </ChartContainer>
                 </CardContent>
               </Card>
 
-              {/* Performance Distribution */}
+              {/* Performance Distribution Pie Chart */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Performance Distribution</CardTitle>
-                  <CardDescription>Faculty distribution by performance levels</CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    <Target className="w-5 h-5" />
+                    Performance Distribution Analysis
+                  </CardTitle>
+                  <CardDescription>Faculty distribution across performance categories</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ChartContainer config={chartConfig} className="h-[400px]">
-                    <PieChart>
+                    <PieChart margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                       <Pie
                         data={performanceDistribution}
                         cx="50%"
@@ -556,100 +597,111 @@ const AdminDashboard = () => {
               </Card>
             </div>
 
-            {/* Criteria Analysis & Top Performers */}
+            {/* Comprehensive Criteria Analysis */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Criteria Performance */}
+              {/* Criteria Performance Bar Chart */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Criteria Performance Analysis</CardTitle>
+                  <CardTitle className="flex items-center gap-2">
+                    <Award className="w-5 h-5" />
+                    Evaluation Criteria Performance
+                  </CardTitle>
                   <CardDescription>Average performance across all evaluation criteria</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ChartContainer config={chartConfig} className="h-[400px]">
-                    <BarChart data={criteriaComparisonData} layout="horizontal">
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis type="number" domain={[0, 5]} />
-                      <YAxis dataKey="criteria" type="category" width={100} />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar dataKey="average" fill="var(--color-average)" />
+                    <BarChart data={criteriaComparisonData} layout="horizontal" margin={{ top: 20, right: 30, left: 80, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis type="number" domain={[0, 5]} tick={{ fontSize: 12 }} />
+                      <YAxis dataKey="criteria" type="category" width={100} tick={{ fontSize: 11 }} />
+                      <ChartTooltip 
+                        content={<ChartTooltipContent 
+                          formatter={(value) => [value.toFixed(1), "Average Score"]} 
+                        />} 
+                      />
+                      <Bar dataKey="average" fill="#8884d8" radius={[0, 4, 4, 0]}>
+                        {criteriaComparisonData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Bar>
                     </BarChart>
                   </ChartContainer>
                 </CardContent>
               </Card>
 
-              {/* Top Performers List */}
+              {/* Top Faculty Radar Chart */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Top Faculty Performers</CardTitle>
-                  <CardDescription>Highest rated faculty members</CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    <Star className="w-5 h-5" />
+                    Top Faculty Skills Comparison
+                  </CardTitle>
+                  <CardDescription>Multi-dimensional analysis of top performing faculty</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {topPerformers.map((faculty, index) => (
-                      <div key={faculty.name} className="flex items-center justify-between p-4 rounded-lg border">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${
-                            index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-amber-600' : 'bg-blue-500'
-                          }`}>
-                            {faculty.rank}
-                          </div>
-                          <div>
-                            <div className="font-medium">{faculty.name}</div>
-                            <div className="text-sm text-muted-foreground">{faculty.department}</div>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-lg font-bold">{faculty.score.toFixed(1)}</div>
-                          <div className="text-xs text-muted-foreground">{faculty.ratings} ratings</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <ChartContainer config={chartConfig} className="h-[400px]">
+                    <RadarChart data={topFacultyRadarData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                      <PolarGrid />
+                      <PolarAngleAxis dataKey="faculty" tick={{ fontSize: 10 }} />
+                      <PolarRadiusAxis angle={0} domain={[0, 5]} tick={{ fontSize: 8 }} />
+                      <Radar name="Engagement" dataKey="engagement" stroke="#82ca9d" fill="#82ca9d" fillOpacity={0.3} strokeWidth={2} />
+                      <Radar name="Communication" dataKey="communication" stroke="#ffc658" fill="#ffc658" fillOpacity={0.3} strokeWidth={2} />
+                      <Radar name="Pedagogy" dataKey="pedagogy" stroke="#ff7c7c" fill="#ff7c7c" fillOpacity={0.3} strokeWidth={2} />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <ChartLegend content={<ChartLegendContent />} />
+                    </RadarChart>
+                  </ChartContainer>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Performance Trends */}
+            {/* Performance Trends Over Time */}
             {performanceTrends.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Performance Trends Over Time</CardTitle>
-                  <CardDescription>Monthly rating trends and participation</CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5" />
+                    Performance Trends Analysis
+                  </CardTitle>
+                  <CardDescription>Monthly rating trends and participation patterns</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ChartContainer config={chartConfig} className="h-[400px]">
-                    <ComposedChart data={performanceTrends}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" />
-                      <YAxis yAxisId="left" domain={[0, 5]} />
-                      <YAxis yAxisId="right" orientation="right" />
+                    <ComposedChart data={monthlyTrendData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                      <YAxis yAxisId="left" domain={[0, 5]} tick={{ fontSize: 12 }} />
+                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <ChartLegend content={<ChartLegendContent />} />
-                      <Area yAxisId="left" type="monotone" dataKey="avgRating" fill="var(--color-overall)" fillOpacity={0.3} />
-                      <Line yAxisId="left" type="monotone" dataKey="avgRating" stroke="var(--color-overall)" strokeWidth={2} name="Avg Rating" />
-                      <Bar yAxisId="right" dataKey="totalRatings" fill="var(--color-ratings)" name="Total Ratings" />
+                      <Area yAxisId="left" type="monotone" dataKey="avgRating" fill="#8884d8" fillOpacity={0.3} />
+                      <Line yAxisId="left" type="monotone" dataKey="avgRating" stroke="#8884d8" strokeWidth={3} name="Avg Rating" dot={{ r: 5 }} />
+                      <Bar yAxisId="right" dataKey="totalRatings" fill="#d084d0" name="Total Ratings" radius={[2, 2, 0, 0]} />
                     </ComposedChart>
                   </ChartContainer>
                 </CardContent>
               </Card>
             )}
 
-            {/* Department Insights */}
+            {/* Department Performance Analysis */}
             {departmentInsights.length > 0 && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Department Insights</CardTitle>
-                  <CardDescription>Performance breakdown by department</CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="w-5 h-5" />
+                    Department Performance Insights
+                  </CardTitle>
+                  <CardDescription>Comprehensive department-wise performance breakdown</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                     {departmentInsights.map((dept, index) => (
                       <Card key={dept.department} className="border-l-4" style={{ borderLeftColor: COLORS[index % COLORS.length] }}>
                         <CardContent className="p-4">
-                          <h4 className="font-semibold mb-2">{dept.department}</h4>
-                          <div className="space-y-2 text-sm">
+                          <h4 className="font-semibold mb-2 text-sm">{dept.department}</h4>
+                          <div className="space-y-2 text-xs">
                             <div className="flex justify-between">
-                              <span>Faculty Count:</span>
+                              <span>Faculty:</span>
                               <span className="font-medium">{dept.facultyCount}</span>
                             </div>
                             <div className="flex justify-between">
@@ -657,16 +709,16 @@ const AdminDashboard = () => {
                               <span className="font-medium">{dept.avgRating.toFixed(1)}/5</span>
                             </div>
                             <div className="flex justify-between">
-                              <span>Total Ratings:</span>
+                              <span>Ratings:</span>
                               <span className="font-medium">{dept.totalRatings}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span>Top Performer:</span>
-                              <span className="font-medium text-green-600">{dept.topPerformer}</span>
+                              <span>Top:</span>
+                              <span className="font-medium text-green-600 text-xs">{dept.topPerformer}</span>
                             </div>
                             {dept.improvementNeeded > 0 && (
                               <div className="flex justify-between">
-                                <span>Need Improvement:</span>
+                                <span>Need Help:</span>
                                 <span className="font-medium text-red-600">{dept.improvementNeeded}</span>
                               </div>
                             )}
@@ -676,16 +728,18 @@ const AdminDashboard = () => {
                     ))}
                   </div>
                   
-                  <ChartContainer config={chartConfig} className="h-[300px]">
-                    <BarChart data={departmentInsights}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="department" />
-                      <YAxis />
+                  <ChartContainer config={chartConfig} className="h-[350px]">
+                    <ComposedChart data={departmentPerformanceData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis dataKey="department" tick={{ fontSize: 11 }} />
+                      <YAxis yAxisId="left" domain={[0, 5]} tick={{ fontSize: 12 }} />
+                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} />
                       <ChartTooltip content={<ChartTooltipContent />} />
                       <ChartLegend content={<ChartLegendContent />} />
-                      <Bar dataKey="avgRating" fill="var(--color-overall)" name="Average Rating" />
-                      <Bar dataKey="facultyCount" fill="var(--color-ratings)" name="Faculty Count" />
-                    </BarChart>
+                      <Bar yAxisId="left" dataKey="avgRating" fill="#8884d8" name="Average Rating" radius={[2, 2, 0, 0]} />
+                      <Line yAxisId="right" type="monotone" dataKey="facultyCount" stroke="#82ca9d" strokeWidth={2} name="Faculty Count" dot={{ r: 4 }} />
+                      <Line yAxisId="right" type="monotone" dataKey="totalRatings" stroke="#ffc658" strokeWidth={2} name="Total Ratings" dot={{ r: 4 }} />
+                    </ComposedChart>
                   </ChartContainer>
                 </CardContent>
               </Card>
