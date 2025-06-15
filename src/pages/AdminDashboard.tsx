@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -187,6 +188,7 @@ const AdminDashboard = () => {
         console.log("Processed faculty ratings:", processedFacultyRatings);
         setFacultyRatings(processedFacultyRatings);
 
+        // Performance trends calculation
         const trendMap = new Map<string, { total: number; count: number; sum: number }>();
         ratingsData?.forEach((rating) => {
           const month = new Date(rating.created_at).toLocaleDateString('en-US', { 
@@ -220,6 +222,7 @@ const AdminDashboard = () => {
 
         setPerformanceTrends(trends);
 
+        // Department insights calculation
         const deptMap = new Map<string, {
           facultyIds: Set<string>;
           totalRatings: number;
@@ -290,7 +293,7 @@ const AdminDashboard = () => {
         console.error("Error fetching analytics:", error);
         toast({
           title: "Error",
-          description: "Failed to fetch analytics data.",
+          description: "Failed to fetch analytics data. Loading default view.",
           variant: "destructive"
         });
       } finally {
@@ -645,6 +648,7 @@ const AdminDashboard = () => {
           </div>
         </div>
 
+        {/* KPI Dashboard */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -691,6 +695,7 @@ const AdminDashboard = () => {
           </Card>
         </div>
 
+        {/* Performance Indicators */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -734,11 +739,13 @@ const AdminDashboard = () => {
               <div className="text-center">
                 <h3 className="text-lg font-semibold mb-2">No Data Available</h3>
                 <p className="text-muted-foreground">No faculty ratings found in the database.</p>
+                <p className="text-sm text-muted-foreground mt-2">Add faculty members and collect ratings to see analytics.</p>
               </div>
             </CardContent>
           </Card>
         ) : (
           <>
+            {/* Advanced Analytics Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
@@ -840,6 +847,30 @@ const AdminDashboard = () => {
               </Card>
             </div>
 
+            {/* Department Performance Analysis */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Department Performance Overview</CardTitle>
+                <CardDescription>Comparative analysis of department-wise faculty performance</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer config={chartConfig} className="h-[400px]">
+                  <ComposedChart data={departmentAnalysis} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis yAxisId="left" orientation="left" />
+                    <YAxis yAxisId="right" orientation="right" />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <ChartLegend content={<ChartLegendContent />} />
+                    <Bar yAxisId="left" dataKey="score" fill="#8884d8" name="Avg Score" />
+                    <Bar yAxisId="left" dataKey="faculty" fill="#82ca9d" name="Faculty Count" />
+                    <Line yAxisId="right" type="monotone" dataKey="efficiency" stroke="#ff7300" name="Efficiency %" />
+                  </ComposedChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+
+            {/* Faculty Performance Table */}
             <Card>
               <CardHeader>
                 <CardTitle>Faculty Ratings Summary</CardTitle>
