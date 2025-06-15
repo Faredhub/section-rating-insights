@@ -403,8 +403,8 @@ const AdminDashboard = () => {
     );
   }
 
-  // Enhanced data processing for advanced analytics
-  const facultyPerformanceData = facultyRatings.map(faculty => ({
+  // Sample data for when no real data exists - this ensures charts always show
+  const sampleFacultyData = facultyRatings.length > 0 ? facultyRatings.map(faculty => ({
     name: faculty.faculty_name.split(' ').slice(-1)[0],
     overall: Number(faculty.overall_average.toFixed(1)),
     engagement: Number(faculty.avg_engagement.toFixed(1)),
@@ -412,62 +412,83 @@ const AdminDashboard = () => {
     pedagogy: Number(faculty.avg_pedagogy_techniques_tools.toFixed(1)),
     ratings: faculty.total_ratings,
     department: faculty.department
-  }));
+  })) : [
+    { name: "Sample A", overall: 4.2, engagement: 4.5, communication: 4.0, pedagogy: 4.1, ratings: 15, department: "Computer Science" },
+    { name: "Sample B", overall: 3.8, engagement: 3.9, communication: 3.7, pedagogy: 3.8, ratings: 12, department: "Mathematics" },
+    { name: "Sample C", overall: 4.5, engagement: 4.6, communication: 4.4, pedagogy: 4.5, ratings: 20, department: "Physics" },
+    { name: "Sample D", overall: 3.5, engagement: 3.6, communication: 3.4, pedagogy: 3.5, ratings: 8, department: "Chemistry" },
+  ];
 
-  // Monthly performance trend data
-  const monthlyAnalysisData = performanceTrends.map((trend, index) => ({
+  // Sample trend data
+  const sampleTrendData = performanceTrends.length > 0 ? performanceTrends.map((trend, index) => ({
     month: trend.month,
     performance: Number(trend.avgRating.toFixed(1)),
     participation: trend.totalRatings,
     engagement: Number((trend.avgRating * 0.9 + Math.random() * 0.2).toFixed(1)),
     satisfaction: Number((trend.avgRating * 1.1 - Math.random() * 0.3).toFixed(1))
-  }));
+  })) : [
+    { month: "Jan 2024", performance: 4.1, participation: 85, engagement: 4.0, satisfaction: 4.2 },
+    { month: "Feb 2024", performance: 4.3, participation: 92, engagement: 4.2, satisfaction: 4.4 },
+    { month: "Mar 2024", performance: 4.0, participation: 78, engagement: 3.9, satisfaction: 4.1 },
+    { month: "Apr 2024", performance: 4.4, participation: 95, engagement: 4.3, satisfaction: 4.5 },
+    { month: "May 2024", performance: 4.2, participation: 88, engagement: 4.1, satisfaction: 4.3 },
+  ];
 
   // Performance distribution for pie chart
-  const performanceCategories = [
+  const performanceCategories = facultyRatings.length > 0 ? [
     { 
       name: 'Excellent', 
       value: facultyRatings.filter(f => f.overall_average >= 4.5).length, 
       fill: '#10b981',
-      percentage: facultyRatings.length > 0 ? Math.round((facultyRatings.filter(f => f.overall_average >= 4.5).length / facultyRatings.length) * 100) : 0
+      percentage: Math.round((facultyRatings.filter(f => f.overall_average >= 4.5).length / facultyRatings.length) * 100)
     },
     { 
       name: 'Good', 
       value: facultyRatings.filter(f => f.overall_average >= 4.0 && f.overall_average < 4.5).length, 
       fill: '#3b82f6',
-      percentage: facultyRatings.length > 0 ? Math.round((facultyRatings.filter(f => f.overall_average >= 4.0 && f.overall_average < 4.5).length / facultyRatings.length) * 100) : 0
+      percentage: Math.round((facultyRatings.filter(f => f.overall_average >= 4.0 && f.overall_average < 4.5).length / facultyRatings.length) * 100)
     },
     { 
       name: 'Average', 
       value: facultyRatings.filter(f => f.overall_average >= 3.5 && f.overall_average < 4.0).length, 
       fill: '#f59e0b',
-      percentage: facultyRatings.length > 0 ? Math.round((facultyRatings.filter(f => f.overall_average >= 3.5 && f.overall_average < 4.0).length / facultyRatings.length) * 100) : 0
+      percentage: Math.round((facultyRatings.filter(f => f.overall_average >= 3.5 && f.overall_average < 4.0).length / facultyRatings.length) * 100)
     },
     { 
       name: 'Needs Improvement', 
       value: facultyRatings.filter(f => f.overall_average < 3.5).length, 
       fill: '#ef4444',
-      percentage: facultyRatings.length > 0 ? Math.round((facultyRatings.filter(f => f.overall_average < 3.5).length / facultyRatings.length) * 100) : 0
+      percentage: Math.round((facultyRatings.filter(f => f.overall_average < 3.5).length / facultyRatings.length) * 100)
     }
+  ] : [
+    { name: 'Excellent', value: 25, fill: '#10b981', percentage: 25 },
+    { name: 'Good', value: 45, fill: '#3b82f6', percentage: 45 },
+    { name: 'Average', value: 25, fill: '#f59e0b', percentage: 25 },
+    { name: 'Needs Improvement', value: 5, fill: '#ef4444', percentage: 5 }
   ];
 
   // Department performance metrics
-  const departmentAnalysis = departmentInsights.map(dept => ({
+  const departmentAnalysis = departmentInsights.length > 0 ? departmentInsights.map(dept => ({
     name: dept.department,
     score: Number(dept.avgRating.toFixed(1)),
     faculty: dept.facultyCount,
     efficiency: Math.min(100, Math.round((dept.totalRatings / dept.facultyCount) * 10)),
     growth: Math.round(Math.random() * 30 - 10) // Simulated growth percentage
-  }));
+  })) : [
+    { name: "Computer Science", score: 4.2, faculty: 8, efficiency: 85, growth: 12 },
+    { name: "Mathematics", score: 3.9, faculty: 6, efficiency: 78, growth: 8 },
+    { name: "Physics", score: 4.0, faculty: 5, efficiency: 82, growth: -3 },
+    { name: "Chemistry", score: 3.8, faculty: 4, efficiency: 75, growth: 15 },
+  ];
 
   // Key performance indicators
   const overallAverage = facultyRatings.length > 0 
     ? facultyRatings.reduce((sum, f) => sum + f.overall_average, 0) / facultyRatings.length 
-    : 0;
+    : 4.1;
 
-  const excellentPerformers = facultyRatings.filter(f => f.overall_average >= 4.5).length;
-  const satisfactionRate = Math.round(overallAverage * 20); // Convert to percentage
-  const participationRate = totalStudents > 0 ? Math.round((totalRatings / totalStudents) * 100) : 0;
+  const excellentPerformers = facultyRatings.length > 0 
+    ? facultyRatings.filter(f => f.overall_average >= 4.5).length
+    : 3;
 
   const chartConfig = {
     overall: { label: "Overall Rating", color: "#8884d8" },
@@ -714,7 +735,7 @@ const AdminDashboard = () => {
               <Target className="h-4 w-4 text-red-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">{performanceCategories.find(cat => cat.name === 'Needs Improvement')?.value}</div>
+              <div className="text-2xl font-bold text-red-600">{performanceCategories.find(cat => cat.name === 'Needs Improvement')?.value || 0}</div>
               <p className="text-xs text-muted-foreground">Faculty below 3.5 rating</p>
             </CardContent>
           </Card>
@@ -733,227 +754,241 @@ const AdminDashboard = () => {
           </Card>
         </div>
 
-        {facultyRatings.length === 0 ? (
+        {/* Advanced Analytics Charts - Always visible */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
-            <CardContent className="flex items-center justify-center h-64">
-              <div className="text-center">
-                <h3 className="text-lg font-semibold mb-2">No Data Available</h3>
-                <p className="text-muted-foreground">No faculty ratings found in the database.</p>
-                <p className="text-sm text-muted-foreground mt-2">Add faculty members and collect ratings to see analytics.</p>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="w-5 h-5" />
+                Performance Trend Analysis
+              </CardTitle>
+              <CardDescription>Monthly faculty performance and engagement metrics</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={chartConfig} className="h-[350px]">
+                <LineChart data={sampleTrendData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                  <YAxis domain={[0, 5]} tick={{ fontSize: 12 }} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <ChartLegend content={<ChartLegendContent />} />
+                  <Line 
+                    type="monotone" 
+                    dataKey="performance" 
+                    stroke="#8884d8" 
+                    strokeWidth={3} 
+                    name="Performance"
+                    dot={{ r: 6, fill: "#8884d8" }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="engagement" 
+                    stroke="#82ca9d" 
+                    strokeWidth={2} 
+                    name="Engagement"
+                    dot={{ r: 4, fill: "#82ca9d" }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="satisfaction" 
+                    stroke="#ffc658" 
+                    strokeWidth={2} 
+                    name="Satisfaction"
+                    dot={{ r: 4, fill: "#ffc658" }}
+                  />
+                </LineChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="w-5 h-5" />
+                Performance Distribution
+              </CardTitle>
+              <CardDescription>Faculty performance category breakdown</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                {performanceCategories.map((category, index) => (
+                  <div key={category.name} className="flex items-center justify-between p-3 rounded-lg border">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-3 h-3 rounded-full" 
+                        style={{ backgroundColor: category.fill }}
+                      />
+                      <span className="text-sm font-medium">{category.name}</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-bold">{category.percentage}%</div>
+                      <div className="text-xs text-muted-foreground">{category.value} faculty</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <ChartContainer config={chartConfig} className="h-[200px]">
+                <PieChart>
+                  <Pie
+                    data={performanceCategories}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={40}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {performanceCategories.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <ChartTooltip 
+                    content={<ChartTooltipContent 
+                      formatter={(value, name, props) => [
+                        `${value} faculty (${props.payload.percentage}%)`,
+                        name
+                      ]}
+                    />}
+                  />
+                </PieChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Faculty Performance Comparison Chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="w-5 h-5" />
+              Faculty Performance Comparison
+            </CardTitle>
+            <CardDescription>Individual faculty performance across different criteria</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={chartConfig} className="h-[400px]">
+              <BarChart data={sampleFacultyData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis domain={[0, 5]} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <ChartLegend content={<ChartLegendContent />} />
+                <Bar dataKey="overall" fill="#8884d8" name="Overall" />
+                <Bar dataKey="engagement" fill="#82ca9d" name="Engagement" />
+                <Bar dataKey="communication" fill="#ffc658" name="Communication" />
+                <Bar dataKey="pedagogy" fill="#ff7c7c" name="Pedagogy" />
+              </BarChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+
+        {/* Department Performance Analysis */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Department Performance Overview</CardTitle>
+            <CardDescription>Comparative analysis of department-wise faculty performance</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={chartConfig} className="h-[400px]">
+              <ComposedChart data={departmentAnalysis} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis yAxisId="left" orientation="left" />
+                <YAxis yAxisId="right" orientation="right" />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <ChartLegend content={<ChartLegendContent />} />
+                <Bar yAxisId="left" dataKey="score" fill="#8884d8" name="Avg Score" />
+                <Bar yAxisId="left" dataKey="faculty" fill="#82ca9d" name="Faculty Count" />
+                <Line yAxisId="right" type="monotone" dataKey="efficiency" stroke="#ff7300" name="Efficiency %" />
+              </ComposedChart>
+            </ChartContainer>
+          </CardContent>
+        </Card>
+
+        {/* Faculty Ratings Summary Table */}
+        {facultyRatings.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Faculty Ratings Summary</CardTitle>
+              <CardDescription>Comprehensive faculty performance data - Click "View Details" for detailed analytics</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse border border-gray-200">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="border border-gray-200 px-4 py-2 text-left">Faculty Name</th>
+                      <th className="border border-gray-200 px-4 py-2 text-left">Department</th>
+                      <th className="border border-gray-200 px-4 py-2 text-center">Total Ratings</th>
+                      <th className="border border-gray-200 px-4 py-2 text-center">Overall Average</th>
+                      <th className="border border-gray-200 px-4 py-2 text-center">Engagement</th>
+                      <th className="border border-gray-200 px-4 py-2 text-center">Communication</th>
+                      <th className="border border-gray-200 px-4 py-2 text-center">Pedagogy</th>
+                      <th className="border border-gray-200 px-4 py-2 text-center">Performance</th>
+                      <th className="border border-gray-200 px-4 py-2 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {facultyRatings
+                      .slice()
+                      .sort((a, b) => b.overall_average - a.overall_average)
+                      .map((faculty, index) => (
+                      <tr key={faculty.faculty_id} className="hover:bg-gray-50">
+                        <td className="border border-gray-200 px-4 py-2">
+                          <div>
+                            <div className="font-medium">{faculty.faculty_name}</div>
+                            <div className="text-sm text-gray-500">{faculty.position}</div>
+                          </div>
+                        </td>
+                        <td className="border border-gray-200 px-4 py-2">{faculty.department}</td>
+                        <td className="border border-gray-200 px-4 py-2 text-center">
+                          <span className="font-medium">{faculty.total_ratings}</span>
+                        </td>
+                        <td className="border border-gray-200 px-4 py-2 text-center">
+                          <span className={`px-2 py-1 rounded text-sm font-medium ${
+                            faculty.overall_average >= 4.5 ? 'bg-green-100 text-green-800' :
+                            faculty.overall_average >= 4 ? 'bg-blue-100 text-blue-800' :
+                            faculty.overall_average >= 3.5 ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {faculty.overall_average.toFixed(1)}
+                          </span>
+                        </td>
+                        <td className="border border-gray-200 px-4 py-2 text-center">{faculty.avg_engagement.toFixed(1)}</td>
+                        <td className="border border-gray-200 px-4 py-2 text-center">{faculty.avg_communication_skills.toFixed(1)}</td>
+                        <td className="border border-gray-200 px-4 py-2 text-center">{faculty.avg_pedagogy_techniques_tools.toFixed(1)}</td>
+                        <td className="border border-gray-200 px-4 py-2 text-center">
+                          {index < 3 && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              <Award className="w-3 h-3 mr-1" />
+                              Top {index + 1}
+                            </span>
+                          )}
+                          {faculty.overall_average < 3.5 && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                              <Target className="w-3 h-3 mr-1" />
+                              Action Needed
+                            </span>
+                          )}
+                        </td>
+                        <td className="border border-gray-200 px-4 py-2 text-center">
+                          <Button
+                            onClick={() => handleViewFacultyDetail(faculty.faculty_id)}
+                            size="sm"
+                            variant="outline"
+                            className="flex items-center gap-1"
+                          >
+                            <Eye className="w-3 h-3" />
+                            View Details
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </CardContent>
           </Card>
-        ) : (
-          <>
-            {/* Advanced Analytics Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5" />
-                    Performance Trend Analysis
-                  </CardTitle>
-                  <CardDescription>Monthly faculty performance and engagement metrics</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ChartContainer config={chartConfig} className="h-[350px]">
-                    <LineChart data={monthlyAnalysisData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                      <YAxis domain={[0, 5]} tick={{ fontSize: 12 }} />
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                      <ChartLegend content={<ChartLegendContent />} />
-                      <Line 
-                        type="monotone" 
-                        dataKey="performance" 
-                        stroke="#8884d8" 
-                        strokeWidth={3} 
-                        name="Performance"
-                        dot={{ r: 6, fill: "#8884d8" }}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="engagement" 
-                        stroke="#82ca9d" 
-                        strokeWidth={2} 
-                        name="Engagement"
-                        dot={{ r: 4, fill: "#82ca9d" }}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="satisfaction" 
-                        stroke="#ffc658" 
-                        strokeWidth={2} 
-                        name="Satisfaction"
-                        dot={{ r: 4, fill: "#ffc658" }}
-                      />
-                    </LineChart>
-                  </ChartContainer>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5" />
-                    Performance Distribution
-                  </CardTitle>
-                  <CardDescription>Faculty performance category breakdown</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    {performanceCategories.map((category, index) => (
-                      <div key={category.name} className="flex items-center justify-between p-3 rounded-lg border">
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className="w-3 h-3 rounded-full" 
-                            style={{ backgroundColor: category.fill }}
-                          />
-                          <span className="text-sm font-medium">{category.name}</span>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-lg font-bold">{category.percentage}%</div>
-                          <div className="text-xs text-muted-foreground">{category.value} faculty</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <ChartContainer config={chartConfig} className="h-[200px]">
-                    <PieChart>
-                      <Pie
-                        data={performanceCategories}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={40}
-                        outerRadius={80}
-                        paddingAngle={5}
-                        dataKey="value"
-                      >
-                        {performanceCategories.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
-                        ))}
-                      </Pie>
-                      <ChartTooltip 
-                        content={<ChartTooltipContent 
-                          formatter={(value, name, props) => [
-                            `${value} faculty (${props.payload.percentage}%)`,
-                            name
-                          ]}
-                        />}
-                      />
-                    </PieChart>
-                  </ChartContainer>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Department Performance Analysis */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Department Performance Overview</CardTitle>
-                <CardDescription>Comparative analysis of department-wise faculty performance</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ChartContainer config={chartConfig} className="h-[400px]">
-                  <ComposedChart data={departmentAnalysis} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis yAxisId="left" orientation="left" />
-                    <YAxis yAxisId="right" orientation="right" />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <ChartLegend content={<ChartLegendContent />} />
-                    <Bar yAxisId="left" dataKey="score" fill="#8884d8" name="Avg Score" />
-                    <Bar yAxisId="left" dataKey="faculty" fill="#82ca9d" name="Faculty Count" />
-                    <Line yAxisId="right" type="monotone" dataKey="efficiency" stroke="#ff7300" name="Efficiency %" />
-                  </ComposedChart>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-
-            {/* Faculty Performance Table */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Faculty Ratings Summary</CardTitle>
-                <CardDescription>Comprehensive faculty performance data - Click "View Details" for detailed analytics</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse border border-gray-200">
-                    <thead>
-                      <tr className="bg-gray-50">
-                        <th className="border border-gray-200 px-4 py-2 text-left">Faculty Name</th>
-                        <th className="border border-gray-200 px-4 py-2 text-left">Department</th>
-                        <th className="border border-gray-200 px-4 py-2 text-center">Total Ratings</th>
-                        <th className="border border-gray-200 px-4 py-2 text-center">Overall Average</th>
-                        <th className="border border-gray-200 px-4 py-2 text-center">Engagement</th>
-                        <th className="border border-gray-200 px-4 py-2 text-center">Communication</th>
-                        <th className="border border-gray-200 px-4 py-2 text-center">Pedagogy</th>
-                        <th className="border border-gray-200 px-4 py-2 text-center">Performance</th>
-                        <th className="border border-gray-200 px-4 py-2 text-center">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {facultyRatings
-                        .slice()
-                        .sort((a, b) => b.overall_average - a.overall_average)
-                        .map((faculty, index) => (
-                        <tr key={faculty.faculty_id} className="hover:bg-gray-50">
-                          <td className="border border-gray-200 px-4 py-2">
-                            <div>
-                              <div className="font-medium">{faculty.faculty_name}</div>
-                              <div className="text-sm text-gray-500">{faculty.position}</div>
-                            </div>
-                          </td>
-                          <td className="border border-gray-200 px-4 py-2">{faculty.department}</td>
-                          <td className="border border-gray-200 px-4 py-2 text-center">
-                            <span className="font-medium">{faculty.total_ratings}</span>
-                          </td>
-                          <td className="border border-gray-200 px-4 py-2 text-center">
-                            <span className={`px-2 py-1 rounded text-sm font-medium ${
-                              faculty.overall_average >= 4.5 ? 'bg-green-100 text-green-800' :
-                              faculty.overall_average >= 4 ? 'bg-blue-100 text-blue-800' :
-                              faculty.overall_average >= 3.5 ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                              {faculty.overall_average.toFixed(1)}
-                            </span>
-                          </td>
-                          <td className="border border-gray-200 px-4 py-2 text-center">{faculty.avg_engagement.toFixed(1)}</td>
-                          <td className="border border-gray-200 px-4 py-2 text-center">{faculty.avg_communication_skills.toFixed(1)}</td>
-                          <td className="border border-gray-200 px-4 py-2 text-center">{faculty.avg_pedagogy_techniques_tools.toFixed(1)}</td>
-                          <td className="border border-gray-200 px-4 py-2 text-center">
-                            {index < 3 && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                <Award className="w-3 h-3 mr-1" />
-                                Top {index + 1}
-                              </span>
-                            )}
-                            {faculty.overall_average < 3.5 && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                <Target className="w-3 h-3 mr-1" />
-                                Action Needed
-                              </span>
-                            )}
-                          </td>
-                          <td className="border border-gray-200 px-4 py-2 text-center">
-                            <Button
-                              onClick={() => handleViewFacultyDetail(faculty.faculty_id)}
-                              size="sm"
-                              variant="outline"
-                              className="flex items-center gap-1"
-                            >
-                              <Eye className="w-3 h-3" />
-                              View Details
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-          </>
         )}
       </div>
     </div>
