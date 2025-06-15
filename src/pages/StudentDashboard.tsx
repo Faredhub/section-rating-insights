@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader, LogOut, User } from "lucide-react";
+import { Loader, LogOut, User, ArrowLeft, ArrowRight } from "lucide-react";
 
 interface StudentProfile {
   id: string;
@@ -117,6 +117,14 @@ const StudentDashboard = () => {
     );
   };
 
+  const handleNavigateBack = () => {
+    navigate(-1);
+  };
+
+  const handleNavigateForward = () => {
+    navigate(1);
+  };
+
   // Guard: loading state
   if (loading || loadingProfile) {
     return (
@@ -155,10 +163,32 @@ const StudentDashboard = () => {
                 </div>
               </div>
             </div>
-            <Button onClick={handleLogout} variant="outline" className="flex items-center gap-2">
-              <LogOut className="w-4 h-4" />
-              Logout
-            </Button>
+            
+            {/* Navigation Controls */}
+            <div className="flex items-center space-x-2">
+              <Button 
+                onClick={handleNavigateBack} 
+                variant="outline" 
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back
+              </Button>
+              <Button 
+                onClick={handleNavigateForward} 
+                variant="outline" 
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                Forward
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+              <Button onClick={handleLogout} variant="outline" className="flex items-center gap-2">
+                <LogOut className="w-4 h-4" />
+                Logout
+              </Button>
+            </div>
           </div>
         </div>
       </div>
