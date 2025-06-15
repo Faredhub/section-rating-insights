@@ -406,23 +406,25 @@ const StudentDashboard = () => {
                 </CardHeader>
                 <CardContent>
                   <ChartContainer config={chartConfig} className="h-[400px]">
-                    <LineChart data={ratingTrendData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="index" tick={{ fontSize: 12 }} />
-                      <YAxis domain={[0, 5]} tick={{ fontSize: 12 }} />
-                      <ChartTooltip 
-                        content={<ChartTooltipContent 
-                          formatter={(value, name) => [
-                            typeof value === 'number' ? value.toFixed(1) : value, 
-                            name
-                          ]} 
-                        />} 
-                      />
-                      <ChartLegend content={<ChartLegendContent />} />
-                      <Line type="monotone" dataKey="overall" stroke="#8884d8" strokeWidth={3} name="Overall Rating" dot={{ r: 4 }} />
-                      <Line type="monotone" dataKey="engagement" stroke="#82ca9d" strokeWidth={2} name="Engagement" dot={{ r: 3 }} />
-                      <Line type="monotone" dataKey="communication" stroke="#ffc658" strokeWidth={2} name="Communication" dot={{ r: 3 }} />
-                    </LineChart>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={ratingTrendData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis dataKey="index" tick={{ fontSize: 12 }} />
+                        <YAxis domain={[0, 5]} tick={{ fontSize: 12 }} />
+                        <ChartTooltip 
+                          content={<ChartTooltipContent 
+                            formatter={(value, name) => [
+                              typeof value === 'number' ? value.toFixed(1) : value, 
+                              name
+                            ]} 
+                          />} 
+                        />
+                        <ChartLegend content={<ChartLegendContent />} />
+                        <Line type="monotone" dataKey="overall" stroke="#8884d8" strokeWidth={3} name="Overall Rating" dot={{ r: 4 }} />
+                        <Line type="monotone" dataKey="engagement" stroke="#82ca9d" strokeWidth={2} name="Engagement" dot={{ r: 3 }} />
+                        <Line type="monotone" dataKey="communication" stroke="#ffc658" strokeWidth={2} name="Communication" dot={{ r: 3 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
                   </ChartContainer>
                 </CardContent>
               </Card>
@@ -438,23 +440,25 @@ const StudentDashboard = () => {
                 </CardHeader>
                 <CardContent>
                   <ChartContainer config={chartConfig} className="h-[400px]">
-                    <PieChart margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                      <Pie
-                        data={ratingDistribution}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, value, percent }) => value > 0 ? `${name}: ${value} (${(percent * 100).toFixed(0)}%)` : ''}
-                        outerRadius={120}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {ratingDistribution.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
-                        ))}
-                      </Pie>
-                      <ChartTooltip content={<ChartTooltipContent />} />
-                    </PieChart>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                        <Pie
+                          data={ratingDistribution}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, value, percent }) => value > 0 ? `${name}: ${value} (${(percent * 100).toFixed(0)}%)` : ''}
+                          outerRadius={120}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {ratingDistribution.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.fill} />
+                          ))}
+                        </Pie>
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                      </PieChart>
+                    </ResponsiveContainer>
                   </ChartContainer>
                 </CardContent>
               </Card>
@@ -473,17 +477,19 @@ const StudentDashboard = () => {
                 </CardHeader>
                 <CardContent>
                   <ChartContainer config={chartConfig} className="h-[400px]">
-                    <BarChart data={criteriaAverages} layout="horizontal" margin={{ top: 20, right: 30, left: 80, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis type="number" domain={[0, 5]} tick={{ fontSize: 12 }} />
-                      <YAxis dataKey="criteria" type="category" width={100} tick={{ fontSize: 11 }} />
-                      <ChartTooltip 
-                        content={<ChartTooltipContent 
-                          formatter={(value) => [typeof value === 'number' ? value.toFixed(1) : value, "Your Average"]} 
-                        />} 
-                      />
-                      <Bar dataKey="average" fill="#8884d8" radius={[0, 4, 4, 0]} />
-                    </BarChart>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={criteriaAverages} layout="horizontal" margin={{ top: 20, right: 30, left: 80, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis type="number" domain={[0, 5]} tick={{ fontSize: 12 }} />
+                        <YAxis dataKey="criteria" type="category" width={100} tick={{ fontSize: 11 }} />
+                        <ChartTooltip 
+                          content={<ChartTooltipContent 
+                            formatter={(value) => [typeof value === 'number' ? value.toFixed(1) : value, "Your Average"]} 
+                          />} 
+                        />
+                        <Bar dataKey="average" fill="#8884d8" radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
                   </ChartContainer>
                 </CardContent>
               </Card>
@@ -499,22 +505,24 @@ const StudentDashboard = () => {
                 </CardHeader>
                 <CardContent>
                   <ChartContainer config={chartConfig} className="h-[400px]">
-                    <BarChart data={facultyComparisonData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                      <XAxis dataKey="faculty" tick={{ fontSize: 11 }} />
-                      <YAxis domain={[0, 5]} tick={{ fontSize: 12 }} />
-                      <ChartTooltip 
-                        content={<ChartTooltipContent 
-                          formatter={(value, name) => [
-                            typeof value === 'number' ? value.toFixed(1) : value, 
-                            name
-                          ]} 
-                        />} 
-                      />
-                      <ChartLegend content={<ChartLegendContent />} />
-                      <Bar dataKey="myRating" fill="#8884d8" name="Your Rating" radius={[2, 2, 0, 0]} />
-                      <Bar dataKey="avgRating" fill="#82ca9d" name="Your Average" radius={[2, 2, 0, 0]} />
-                    </BarChart>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={facultyComparisonData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis dataKey="faculty" tick={{ fontSize: 11 }} />
+                        <YAxis domain={[0, 5]} tick={{ fontSize: 12 }} />
+                        <ChartTooltip 
+                          content={<ChartTooltipContent 
+                            formatter={(value, name) => [
+                              typeof value === 'number' ? value.toFixed(1) : value, 
+                              name
+                            ]} 
+                          />} 
+                        />
+                        <ChartLegend content={<ChartLegendContent />} />
+                        <Bar dataKey="myRating" fill="#8884d8" name="Your Rating" radius={[2, 2, 0, 0]} />
+                        <Bar dataKey="avgRating" fill="#82ca9d" name="Your Average" radius={[2, 2, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
                   </ChartContainer>
                 </CardContent>
               </Card>

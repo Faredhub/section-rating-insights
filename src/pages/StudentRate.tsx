@@ -308,7 +308,7 @@ const StudentRate = () => {
                     <FormField
                       key={criteria.key}
                       control={form.control}
-                      name={criteria.key as any}
+                      name={criteria.key as keyof z.infer<typeof ratingFormSchema>}
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-sm font-medium">
@@ -319,16 +319,21 @@ const StudentRate = () => {
                               {criteria.description}
                             </p>
                             <div className="flex items-center space-x-4">
-                              <span className="text-xs text-muted-foreground">Poor</span>
-                              <Slider
-                                min={1}
-                                max={5}
-                                step={1}
-                                value={[field.value]}
-                                onValueChange={(value) => field.onChange(value[0])}
-                                className="flex-1"
-                              />
-                              <span className="text-xs text-muted-foreground">Excellent</span>
+                              <span className="text-xs text-muted-foreground min-w-8">Poor</span>
+                              <div className="flex-1 px-3">
+                                <Slider
+                                  min={1}
+                                  max={5}
+                                  step={1}
+                                  value={[field.value as number]}
+                                  onValueChange={(value) => {
+                                    console.log(`Setting ${criteria.key} to ${value[0]}`);
+                                    field.onChange(value[0]);
+                                  }}
+                                  className="w-full"
+                                />
+                              </div>
+                              <span className="text-xs text-muted-foreground min-w-12">Excellent</span>
                             </div>
                             <div className="flex justify-center">
                               <span className="text-sm font-medium bg-primary/10 px-2 py-1 rounded">
