@@ -36,6 +36,132 @@ export type Database = {
         }
         Relationships: []
       }
+      faculty_assignments: {
+        Row: {
+          faculty_id: string
+          id: string
+          section_id: string
+          subject_id: string
+        }
+        Insert: {
+          faculty_id: string
+          id?: string
+          section_id: string
+          subject_id: string
+        }
+        Update: {
+          faculty_id?: string
+          id?: string
+          section_id?: string
+          subject_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "faculty_assignments_faculty_id_fkey"
+            columns: ["faculty_id"]
+            isOneToOne: false
+            referencedRelation: "faculty"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "faculty_assignments_faculty_id_fkey"
+            columns: ["faculty_id"]
+            isOneToOne: false
+            referencedRelation: "faculty_stats"
+            referencedColumns: ["faculty_id"]
+          },
+          {
+            foreignKeyName: "faculty_assignments_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "faculty_assignments_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      faculty_credentials_ratings: {
+        Row: {
+          application_oriented_teaching: number
+          class_decorum: number
+          communication_skills: number
+          concept_understanding: number
+          content_spread_depth: number
+          created_at: string
+          engagement: number
+          faculty_assignment_id: string
+          feedback: string | null
+          id: string
+          pedagogy_techniques_tools: number
+          section_id: string
+          student_id: string
+          subject_id: string
+          teaching_aids: number
+        }
+        Insert: {
+          application_oriented_teaching: number
+          class_decorum: number
+          communication_skills: number
+          concept_understanding: number
+          content_spread_depth: number
+          created_at?: string
+          engagement: number
+          faculty_assignment_id: string
+          feedback?: string | null
+          id?: string
+          pedagogy_techniques_tools: number
+          section_id: string
+          student_id: string
+          subject_id: string
+          teaching_aids: number
+        }
+        Update: {
+          application_oriented_teaching?: number
+          class_decorum?: number
+          communication_skills?: number
+          concept_understanding?: number
+          content_spread_depth?: number
+          created_at?: string
+          engagement?: number
+          faculty_assignment_id?: string
+          feedback?: string | null
+          id?: string
+          pedagogy_techniques_tools?: number
+          section_id?: string
+          student_id?: string
+          subject_id?: string
+          teaching_aids?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "faculty_credentials_ratings_faculty_assignment_id_fkey"
+            columns: ["faculty_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "faculty_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "faculty_credentials_ratings_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "faculty_credentials_ratings_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ratings: {
         Row: {
           comment: string | null
@@ -77,6 +203,99 @@ export type Database = {
             referencedColumns: ["faculty_id"]
           },
         ]
+      }
+      sections: {
+        Row: {
+          id: string
+          name: string
+          semester_id: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          semester_id: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          semester_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sections_semester_id_fkey"
+            columns: ["semester_id"]
+            isOneToOne: false
+            referencedRelation: "semesters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      semesters: {
+        Row: {
+          id: string
+          name: string
+          year_id: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          year_id: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          year_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "semesters_year_id_fkey"
+            columns: ["year_id"]
+            isOneToOne: false
+            referencedRelation: "years"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subjects: {
+        Row: {
+          id: string
+          name: string
+          section_id: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          section_id: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          section_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subjects_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      years: {
+        Row: {
+          id: string
+          name: string
+        }
+        Insert: {
+          id?: string
+          name: string
+        }
+        Update: {
+          id?: string
+          name?: string
+        }
+        Relationships: []
       }
     }
     Views: {

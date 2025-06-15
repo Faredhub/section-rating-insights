@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,6 +10,8 @@ import Dashboard from "./pages/Dashboard";
 import Faculty from "./pages/Faculty";
 import Rate from "./pages/Rate";
 import Ratings from "./pages/Ratings";
+import StudentDashboard from "./pages/StudentDashboard";
+import StudentRate from "./pages/StudentRate";
 
 const queryClient = new QueryClient();
 
@@ -27,7 +28,11 @@ const App = () => (
           <Route path="/faculty" element={<Faculty />} />
           <Route path="/rate" element={<Rate />} />
           <Route path="/ratings" element={<Ratings />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+
+          {/* --- NEW STUDENT DASHBOARD AND RATING FLOW --- */}
+          <Route path="/student-dashboard" element={<StudentDashboard />} />
+          <Route path="/student-dashboard/rate" element={<StudentRate />} />
+          
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

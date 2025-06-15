@@ -101,6 +101,12 @@ const Dashboard = () => {
           <h1 className="text-2xl font-bold">Faculty Ratings Dashboard</h1>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground">Welcome, {user.email}</span>
+            <Button asChild variant="outline">
+              <Link to="/student-dashboard">Student Panel</Link>
+            </Button>
+            <Button asChild variant="outline" className="ml-2">
+              <Link to="/admin-dashboard">Admin</Link>
+            </Button>
             <Button onClick={handleLogout} variant="outline">Logout</Button>
           </div>
         </div>
