@@ -479,7 +479,7 @@ const StudentDashboard = () => {
                       <YAxis dataKey="criteria" type="category" width={100} tick={{ fontSize: 11 }} />
                       <ChartTooltip 
                         content={<ChartTooltipContent 
-                          formatter={(value) => [value.toFixed(1), "Your Average"]} 
+                          formatter={(value) => [typeof value === 'number' ? value.toFixed(1) : value, "Your Average"]} 
                         />} 
                       />
                       <Bar dataKey="average" fill="#8884d8" radius={[0, 4, 4, 0]} />

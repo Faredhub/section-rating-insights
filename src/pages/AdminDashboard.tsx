@@ -53,14 +53,12 @@ const AdminDashboard = () => {
   const [loadingData, setLoadingData] = useState(true);
   const [selectedFacultyId, setSelectedFacultyId] = useState<string | null>(null);
 
-  // Fetch analytics data
   useEffect(() => {
     const fetchAnalytics = async () => {
       console.log("Starting to fetch analytics data...");
       setLoadingData(true);
       
       try {
-        // Get faculty ratings analytics
         console.log("Fetching faculty ratings...");
         const { data: ratingsData, error: ratingsError } = await supabase
           .from("faculty_credentials_ratings")
@@ -87,7 +85,6 @@ const AdminDashboard = () => {
 
         console.log("Ratings data:", ratingsData);
 
-        // Process faculty ratings
         const facultyMap = new Map<string, {
           faculty_id: string;
           faculty_name: string;
@@ -132,7 +129,6 @@ const AdminDashboard = () => {
           facultyData.criteria.teaching_aids.push(rating.teaching_aids);
         });
 
-        // Calculate averages
         const processedFacultyRatings: FacultyRating[] = Array.from(facultyMap.values()).map(faculty => {
           const criteriaAverages = Object.entries(faculty.criteria).reduce((acc, [key, values]) => {
             acc[`avg_${key}`] = values.length > 0 ? values.reduce((sum, val) => sum + val, 0) / values.length : 0;
@@ -155,7 +151,6 @@ const AdminDashboard = () => {
         console.log("Processed faculty ratings:", processedFacultyRatings);
         setFacultyRatings(processedFacultyRatings);
 
-        // Process performance trends (monthly)
         const trendMap = new Map<string, { total: number; count: number; sum: number }>();
         ratingsData?.forEach((rating) => {
           const month = new Date(rating.created_at).toLocaleDateString('en-US', { 
@@ -189,7 +184,6 @@ const AdminDashboard = () => {
 
         setPerformanceTrends(trends);
 
-        // Process department insights
         const deptMap = new Map<string, {
           facultyIds: Set<string>;
           totalRatings: number;
@@ -237,7 +231,6 @@ const AdminDashboard = () => {
 
         setDepartmentInsights(insights);
 
-        // Get basic stats
         console.log("Fetching basic stats...");
         const { count: facultyCount } = await supabase
           .from("faculty")
@@ -294,7 +287,6 @@ const AdminDashboard = () => {
     );
   }
 
-  // Show detailed faculty view if selected
   if (selectedFacultyId) {
     return (
       <div className="min-h-screen bg-background p-6">
@@ -308,7 +300,6 @@ const AdminDashboard = () => {
     );
   }
 
-  // Enhanced chart data preparation
   const facultyPerformanceData = facultyRatings.map(faculty => ({
     name: faculty.faculty_name.split(' ').slice(-1)[0],
     overall: Number(faculty.overall_average.toFixed(1)),
@@ -354,7 +345,6 @@ const AdminDashboard = () => {
     }
   ];
 
-  // Performance distribution for pie chart
   const performanceDistribution = [
     { name: 'Excellent (4.5+)', value: facultyRatings.filter(f => f.overall_average >= 4.5).length, fill: '#22c55e' },
     { name: 'Good (4.0-4.4)', value: facultyRatings.filter(f => f.overall_average >= 4.0 && f.overall_average < 4.5).length, fill: '#3b82f6' },
@@ -362,7 +352,6 @@ const AdminDashboard = () => {
     { name: 'Needs Improvement (<3.5)', value: facultyRatings.filter(f => f.overall_average < 3.5).length, fill: '#ef4444' }
   ];
 
-  // Department performance data
   const departmentPerformanceData = departmentInsights.map(dept => ({
     department: dept.department,
     avgRating: Number(dept.avgRating.toFixed(1)),
@@ -371,7 +360,6 @@ const AdminDashboard = () => {
     improvementNeeded: dept.improvementNeeded
   }));
 
-  // Faculty ranking data for radar chart
   const topFacultyRadarData = facultyRatings
     .slice()
     .sort((a, b) => b.overall_average - a.overall_average)
@@ -385,14 +373,12 @@ const AdminDashboard = () => {
       overall: faculty.overall_average
     }));
 
-  // Monthly trends enhanced
   const monthlyTrendData = performanceTrends.map(trend => ({
     month: trend.month,
     totalRatings: trend.totalRatings,
     avgRating: Number(trend.avgRating.toFixed(1))
   }));
 
-  // Chart configuration
   const chartConfig = {
     overall: { label: "Overall Rating", color: "#8884d8" },
     engagement: { label: "Engagement", color: "#82ca9d" },
@@ -416,7 +402,6 @@ const AdminDashboard = () => {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold">Faculty Performance Analytics Dashboard</h1>
@@ -433,7 +418,6 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Enhanced Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -480,7 +464,6 @@ const AdminDashboard = () => {
           </Card>
         </div>
 
-        {/* Performance Insights Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -529,9 +512,7 @@ const AdminDashboard = () => {
           </Card>
         ) : (
           <>
-            {/* Enhanced Faculty Performance Visualization Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Faculty Performance Comparison Chart */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -564,7 +545,6 @@ const AdminDashboard = () => {
                 </CardContent>
               </Card>
 
-              {/* Performance Distribution Pie Chart */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -597,9 +577,7 @@ const AdminDashboard = () => {
               </Card>
             </div>
 
-            {/* Comprehensive Criteria Analysis */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Criteria Performance Bar Chart */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -616,7 +594,7 @@ const AdminDashboard = () => {
                       <YAxis dataKey="criteria" type="category" width={100} tick={{ fontSize: 11 }} />
                       <ChartTooltip 
                         content={<ChartTooltipContent 
-                          formatter={(value) => [value.toFixed(1), "Average Score"]} 
+                          formatter={(value) => [typeof value === 'number' ? value.toFixed(1) : value, "Average Score"]} 
                         />} 
                       />
                       <Bar dataKey="average" fill="#8884d8" radius={[0, 4, 4, 0]}>
@@ -629,7 +607,6 @@ const AdminDashboard = () => {
                 </CardContent>
               </Card>
 
-              {/* Top Faculty Radar Chart */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -655,7 +632,6 @@ const AdminDashboard = () => {
               </Card>
             </div>
 
-            {/* Performance Trends Over Time */}
             {performanceTrends.length > 0 && (
               <Card>
                 <CardHeader>
@@ -683,7 +659,6 @@ const AdminDashboard = () => {
               </Card>
             )}
 
-            {/* Department Performance Analysis */}
             {departmentInsights.length > 0 && (
               <Card>
                 <CardHeader>
@@ -745,7 +720,6 @@ const AdminDashboard = () => {
               </Card>
             )}
 
-            {/* Faculty Table */}
             <Card>
               <CardHeader>
                 <CardTitle>Faculty Ratings Summary</CardTitle>
