@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -50,31 +49,10 @@ interface FacultyRating {
   student_satisfaction?: string;
 }
 
-interface PerformanceTrend {
-  month: string;
-  totalRatings: number;
-  avgRating: number;
-  avgEngagement?: number;
-  avgSatisfaction?: number;
-}
-
-interface DepartmentInsight {
-  department: string;
-  facultyCount: number;
-  totalRatings: number;
-  avgRating: number;
-  topPerformer: string;
-  improvementNeeded: number;
-  excellentPerformers?: number;
-  participationRate?: number;
-}
-
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [facultyRatings, setFacultyRatings] = useState<FacultyRating[]>([]);
-  const [performanceTrends, setPerformanceTrends] = useState<PerformanceTrend[]>([]);
-  const [departmentInsights, setDepartmentInsights] = useState<DepartmentInsight[]>([]);
   const [totalStudents, setTotalStudents] = useState(0);
   const [totalFaculty, setTotalFaculty] = useState(0);
   const [totalRatings, setTotalRatings] = useState(0);
@@ -248,96 +226,6 @@ const AdminDashboard = () => {
         console.log("Processed faculty ratings:", processedFacultyRatings);
         setFacultyRatings(processedFacultyRatings);
 
-        // Generate performance trends from current year (2025)
-        const trendMap = new Map<string, { total: number; count: number; sum: number; engagement: number; satisfaction: number }>();
-        ratingsData?.forEach((rating) => {
-          const month = new Date(rating.created_at).toLocaleDateString('en-US', { 
-            year: 'numeric', 
-            month: 'short' 
-          });
-          
-          const avgRating = (
-            rating.engagement + rating.concept_understanding + rating.content_spread_depth +
-            rating.application_oriented_teaching + rating.pedagogy_techniques_tools +
-            rating.communication_skills + rating.class_decorum + rating.teaching_aids
-          ) / 8;
-
-          if (!trendMap.has(month)) {
-            trendMap.set(month, { total: 0, count: 0, sum: 0, engagement: 0, satisfaction: 0 });
-          }
-          
-          const trend = trendMap.get(month)!;
-          trend.total += 1;
-          trend.count += 1;
-          trend.sum += avgRating;
-          trend.engagement += rating.engagement;
-          trend.satisfaction += (rating.communication_skills + rating.class_decorum) / 2;
-        });
-
-        const trends: PerformanceTrend[] = Array.from(trendMap.entries())
-          .map(([month, data]) => ({
-            month,
-            totalRatings: data.total,
-            avgRating: data.sum / data.count,
-            avgEngagement: data.engagement / data.count,
-            avgSatisfaction: data.satisfaction / data.count
-          }))
-          .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime());
-
-        setPerformanceTrends(trends);
-
-        // Calculate department insights
-        const deptMap = new Map<string, {
-          facultyIds: Set<string>;
-          totalRatings: number;
-          totalScore: number;
-          facultyScores: { [key: string]: { name: string; score: number; ratings: number; subjects: string[] } };
-        }>();
-
-        processedFacultyRatings.forEach((faculty) => {
-          if (!deptMap.has(faculty.department)) {
-            deptMap.set(faculty.department, {
-              facultyIds: new Set(),
-              totalRatings: 0,
-              totalScore: 0,
-              facultyScores: {}
-            });
-          }
-          
-          const dept = deptMap.get(faculty.department)!;
-          dept.facultyIds.add(faculty.faculty_id);
-          dept.totalRatings += faculty.total_ratings;
-          dept.totalScore += faculty.overall_average * faculty.total_ratings;
-          dept.facultyScores[faculty.faculty_id] = {
-            name: faculty.faculty_name,
-            score: faculty.overall_average,
-            ratings: faculty.total_ratings,
-            subjects: faculty.subjects_taught || []
-          };
-        });
-
-        const insights: DepartmentInsight[] = Array.from(deptMap.entries()).map(([department, data]) => {
-          const avgRating = data.totalRatings > 0 ? data.totalScore / data.totalRatings : 0;
-          const facultyScores = Object.values(data.facultyScores);
-          const topPerformer = facultyScores.reduce((max, faculty) => 
-            faculty.score > max.score ? faculty : max, facultyScores[0]);
-          const improvementNeeded = facultyScores.filter(f => f.score < 3.5).length;
-          const excellentPerformers = facultyScores.filter(f => f.score >= 4.5).length;
-
-          return {
-            department,
-            facultyCount: data.facultyIds.size,
-            totalRatings: data.totalRatings,
-            avgRating,
-            topPerformer: topPerformer?.name || 'N/A',
-            improvementNeeded,
-            excellentPerformers,
-            participationRate: Math.round((data.totalRatings / data.facultyIds.size) * 10)
-          };
-        });
-
-        setDepartmentInsights(insights);
-
         console.log("Fetching basic stats...");
         const { count: facultyCount } = await supabase
           .from("faculty")
@@ -394,7 +282,7 @@ const AdminDashboard = () => {
     try {
       console.log("Adding faculty with values:", values);
       
-      // First insert faculty with admin privileges
+      // First insert faculty
       const { data: facultyData, error: facultyError } = await supabase
         .from("faculty")
         .insert({
@@ -481,96 +369,8 @@ const AdminDashboard = () => {
     );
   }
 
-  // Sample data for charts when no real data is available
-  const sampleFacultyData = facultyRatings.length > 0 ? facultyRatings.map(faculty => ({
-    name: faculty.faculty_name.split(' ').slice(-1)[0],
-    overall: Number(faculty.overall_average.toFixed(1)),
-    engagement: Number(faculty.avg_engagement.toFixed(1)),
-    communication: Number(faculty.avg_communication_skills.toFixed(1)),
-    pedagogy: Number(faculty.avg_pedagogy_techniques_tools.toFixed(1)),
-    consistency: Number((faculty.consistency_score || 0).toFixed(1)),
-    ratings: faculty.total_ratings,
-    department: faculty.department,
-    satisfaction: faculty.student_satisfaction,
-    subjects: (faculty.subjects_taught || []).length
-  })) : [
-    { name: "Dr. Smith", overall: 4.2, engagement: 4.5, communication: 4.0, pedagogy: 4.1, consistency: 4.3, ratings: 15, department: "Computer Science", satisfaction: "Good", subjects: 2 },
-    { name: "Prof. Johnson", overall: 3.8, engagement: 3.9, communication: 3.7, pedagogy: 3.8, consistency: 3.9, ratings: 12, department: "Mathematics", satisfaction: "Average", subjects: 1 },
-    { name: "Dr. Williams", overall: 4.5, engagement: 4.6, communication: 4.4, pedagogy: 4.5, consistency: 4.4, ratings: 20, department: "Physics", satisfaction: "Excellent", subjects: 3 },
-    { name: "Prof. Brown", overall: 3.5, engagement: 3.6, communication: 3.4, pedagogy: 3.5, consistency: 3.7, ratings: 8, department: "Chemistry", satisfaction: "Needs Improvement", subjects: 1 },
-  ];
-
-  // Sample trend data for 2025
-  const currentYear = new Date().getFullYear();
-  const sampleTrendData = performanceTrends.length > 0 ? performanceTrends.map((trend, index) => ({
-    month: trend.month,
-    performance: Number(trend.avgRating.toFixed(1)),
-    participation: trend.totalRatings,
-    engagement: Number((trend.avgEngagement || trend.avgRating * 0.9).toFixed(1)),
-    satisfaction: Number((trend.avgSatisfaction || trend.avgRating * 1.1).toFixed(1)),
-    growth: index > 0 ? Number(((trend.avgRating - performanceTrends[index-1].avgRating) * 100).toFixed(1)) : 0
-  })) : [
-    { month: `Jan ${currentYear}`, performance: 4.1, participation: 85, engagement: 4.0, satisfaction: 4.2, growth: 0 },
-    { month: `Feb ${currentYear}`, performance: 4.3, participation: 92, engagement: 4.2, satisfaction: 4.4, growth: 4.9 },
-    { month: `Mar ${currentYear}`, performance: 4.0, participation: 78, engagement: 3.9, satisfaction: 4.1, growth: -7.0 },
-    { month: `Apr ${currentYear}`, performance: 4.4, participation: 95, engagement: 4.3, satisfaction: 4.5, growth: 10.0 },
-    { month: `May ${currentYear}`, performance: 4.2, participation: 88, engagement: 4.1, satisfaction: 4.3, growth: -4.5 },
-  ];
-
-  // Performance distribution
-  const performanceCategories = facultyRatings.length > 0 ? [
-    { 
-      name: 'Excellent (4.5+)', 
-      value: facultyRatings.filter(f => f.overall_average >= 4.5).length, 
-      fill: '#10b981',
-      percentage: Math.round((facultyRatings.filter(f => f.overall_average >= 4.5).length / facultyRatings.length) * 100),
-      description: 'Outstanding performance, student satisfaction is very high'
-    },
-    { 
-      name: 'Good (4.0-4.4)', 
-      value: facultyRatings.filter(f => f.overall_average >= 4.0 && f.overall_average < 4.5).length, 
-      fill: '#3b82f6',
-      percentage: Math.round((facultyRatings.filter(f => f.overall_average >= 4.0 && f.overall_average < 4.5).length / facultyRatings.length) * 100),
-      description: 'Good performance with room for improvement'
-    },
-    { 
-      name: 'Average (3.5-3.9)', 
-      value: facultyRatings.filter(f => f.overall_average >= 3.5 && f.overall_average < 4.0).length, 
-      fill: '#f59e0b',
-      percentage: Math.round((facultyRatings.filter(f => f.overall_average >= 3.5 && f.overall_average < 4.0).length / facultyRatings.length) * 100),
-      description: 'Satisfactory performance, needs focused improvement'
-    },
-    { 
-      name: 'Needs Improvement (<3.5)', 
-      value: facultyRatings.filter(f => f.overall_average < 3.5).length, 
-      fill: '#ef4444',
-      percentage: Math.round((facultyRatings.filter(f => f.overall_average < 3.5).length / facultyRatings.length) * 100),
-      description: 'Immediate attention and support required'
-    }
-  ] : [
-    { name: 'Excellent (4.5+)', value: 3, fill: '#10b981', percentage: 25, description: 'Outstanding performance' },
-    { name: 'Good (4.0-4.4)', value: 5, fill: '#3b82f6', percentage: 45, description: 'Good performance' },
-    { name: 'Average (3.5-3.9)', value: 3, fill: '#f59e0b', percentage: 25, description: 'Satisfactory performance' },
-    { name: 'Needs Improvement (<3.5)', value: 1, fill: '#ef4444', percentage: 5, description: 'Needs support' }
-  ];
-
-  // Department analysis
-  const departmentAnalysis = departmentInsights.length > 0 ? departmentInsights.map(dept => ({
-    name: dept.department,
-    score: Number(dept.avgRating.toFixed(1)),
-    faculty: dept.facultyCount,
-    efficiency: Math.min(100, Math.round((dept.totalRatings / dept.facultyCount) * 10)),
-    excellent: dept.excellentPerformers || 0,
-    needsImprovement: dept.improvementNeeded,
-    participation: dept.participationRate || Math.round(Math.random() * 30 + 70)
-  })) : [
-    { name: "Computer Science", score: 4.2, faculty: 8, efficiency: 85, excellent: 3, needsImprovement: 1, participation: 88 },
-    { name: "Mathematics", score: 3.9, faculty: 6, efficiency: 78, excellent: 1, needsImprovement: 2, participation: 75 },
-    { name: "Physics", score: 4.0, faculty: 5, efficiency: 82, excellent: 2, needsImprovement: 1, participation: 80 },
-    { name: "Chemistry", score: 3.8, faculty: 4, efficiency: 75, excellent: 1, needsImprovement: 1, participation: 72 },
-  ];
-
-  // KPIs
+  // Calculate real-time metrics
+  const currentYear = new Date().getFullYear(); // This will be 2025
   const overallAverage = facultyRatings.length > 0 
     ? facultyRatings.reduce((sum, f) => sum + f.overall_average, 0) / facultyRatings.length 
     : 4.1;
@@ -584,16 +384,60 @@ const AdminDashboard = () => {
     ? Math.round((facultyRatings.filter(f => f.overall_average >= 4.0).length / facultyRatings.length) * 100)
     : 75;
 
+  // Sample data for charts when no real data is available
+  const sampleFacultyData = facultyRatings.length > 0 ? facultyRatings.slice(0, 10).map(faculty => ({
+    name: faculty.faculty_name.split(' ').slice(-1)[0],
+    overall: Number(faculty.overall_average.toFixed(1)),
+    engagement: Number(faculty.avg_engagement.toFixed(1)),
+    communication: Number(faculty.avg_communication_skills.toFixed(1)),
+    pedagogy: Number(faculty.avg_pedagogy_techniques_tools.toFixed(1)),
+    ratings: faculty.total_ratings,
+    department: faculty.department,
+  })) : [
+    { name: "Dr. Smith", overall: 4.2, engagement: 4.5, communication: 4.0, pedagogy: 4.1, ratings: 15, department: "Computer Science" },
+    { name: "Prof. Johnson", overall: 3.8, engagement: 3.9, communication: 3.7, pedagogy: 3.8, ratings: 12, department: "Mathematics" },
+    { name: "Dr. Williams", overall: 4.5, engagement: 4.6, communication: 4.4, pedagogy: 4.5, ratings: 20, department: "Physics" },
+    { name: "Prof. Brown", overall: 3.5, engagement: 3.6, communication: 3.4, pedagogy: 3.5, ratings: 8, department: "Chemistry" },
+  ];
+
+  // Performance distribution with real data
+  const performanceCategories = facultyRatings.length > 0 ? [
+    { 
+      name: 'Excellent (4.5+)', 
+      value: facultyRatings.filter(f => f.overall_average >= 4.5).length, 
+      fill: '#10b981',
+      percentage: Math.round((facultyRatings.filter(f => f.overall_average >= 4.5).length / facultyRatings.length) * 100)
+    },
+    { 
+      name: 'Good (4.0-4.4)', 
+      value: facultyRatings.filter(f => f.overall_average >= 4.0 && f.overall_average < 4.5).length, 
+      fill: '#3b82f6',
+      percentage: Math.round((facultyRatings.filter(f => f.overall_average >= 4.0 && f.overall_average < 4.5).length / facultyRatings.length) * 100)
+    },
+    { 
+      name: 'Average (3.5-3.9)', 
+      value: facultyRatings.filter(f => f.overall_average >= 3.5 && f.overall_average < 4.0).length, 
+      fill: '#f59e0b',
+      percentage: Math.round((facultyRatings.filter(f => f.overall_average >= 3.5 && f.overall_average < 4.0).length / facultyRatings.length) * 100)
+    },
+    { 
+      name: 'Needs Improvement (<3.5)', 
+      value: facultyRatings.filter(f => f.overall_average < 3.5).length, 
+      fill: '#ef4444',
+      percentage: Math.round((facultyRatings.filter(f => f.overall_average < 3.5).length / facultyRatings.length) * 100)
+    }
+  ] : [
+    { name: 'Excellent (4.5+)', value: 3, fill: '#10b981', percentage: 25 },
+    { name: 'Good (4.0-4.4)', value: 5, fill: '#3b82f6', percentage: 45 },
+    { name: 'Average (3.5-3.9)', value: 3, fill: '#f59e0b', percentage: 25 },
+    { name: 'Needs Improvement (<3.5)', value: 1, fill: '#ef4444', percentage: 5 }
+  ];
+
   const chartConfig = {
     overall: { label: "Overall Rating", color: "#8884d8" },
     engagement: { label: "Engagement", color: "#82ca9d" },
     communication: { label: "Communication", color: "#ffc658" },
     pedagogy: { label: "Pedagogy", color: "#ff7c7c" },
-    consistency: { label: "Consistency", color: "#8dd1e1" },
-    performance: { label: "Performance", color: "#8884d8" },
-    participation: { label: "Participation", color: "#82ca9d" },
-    satisfaction: { label: "Satisfaction", color: "#ffc658" },
-    growth: { label: "Growth %", color: "#ff7c7c" }
   };
 
   return (
@@ -601,8 +445,8 @@ const AdminDashboard = () => {
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold">Enhanced Faculty Performance Analytics Dashboard</h1>
-            <p className="text-muted-foreground">Comprehensive Faculty Rating System with Real-time Analytics & Actionable Insights - {currentYear}</p>
+            <h1 className="text-3xl font-bold">Faculty Performance Analytics Dashboard</h1>
+            <p className="text-muted-foreground">Real-time Faculty Rating System - {currentYear}</p>
           </div>
           <div className="flex gap-2">
             <Dialog open={isAddFacultyOpen} onOpenChange={setIsAddFacultyOpen}>
@@ -823,88 +667,29 @@ const AdminDashboard = () => {
           </Card>
         </div>
 
-        {/* Performance Indicators */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Excellent Performers</CardTitle>
-              <Award className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">{excellentPerformers}</div>
-              <p className="text-xs text-muted-foreground">Faculty with 4.5+ rating</p>
-              <div className="mt-2">
-                <Progress value={(excellentPerformers / Math.max(totalFaculty, 1)) * 100} className="h-2" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Needs Improvement</CardTitle>
-              <Target className="h-4 w-4 text-red-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">{performanceCategories.find(cat => cat.name.includes('Needs Improvement'))?.value || 0}</div>
-              <p className="text-xs text-muted-foreground">Faculty below 3.5 rating</p>
-              <div className="mt-2">
-                <Progress value={(performanceCategories.find(cat => cat.name.includes('Needs Improvement'))?.value || 0) / Math.max(totalFaculty, 1) * 100} className="h-2" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Satisfaction Rate</CardTitle>
-              <TrendingUp className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{satisfactionRate}%</div>
-              <p className="text-xs text-muted-foreground">Faculty rated 4.0+</p>
-              <div className="mt-2">
-                <Progress value={satisfactionRate} className="h-2" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Monthly Growth</CardTitle>
-              <TrendingUp className="h-4 w-4 text-purple-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-600">
-                {sampleTrendData.length > 0 ? `${sampleTrendData[sampleTrendData.length - 1].growth}%` : '+2.3%'}
-              </div>
-              <p className="text-xs text-muted-foreground">Performance change</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Analytics Charts */}
+        {/* Performance Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5" />
-                Performance Trend Analysis {currentYear}
+                <BarChart3 className="w-5 h-5" />
+                Faculty Performance Comparison
               </CardTitle>
-              <CardDescription>Monthly faculty performance with real-time data</CardDescription>
+              <CardDescription>Individual faculty performance across multiple criteria</CardDescription>
             </CardHeader>
             <CardContent>
-              <ChartContainer config={chartConfig} className="h-[400px]">
-                <ComposedChart data={sampleTrendData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                  <YAxis yAxisId="left" domain={[0, 5]} tick={{ fontSize: 12 }} />
-                  <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 12 }} />
+              <ChartContainer config={chartConfig} className="h-[300px]">
+                <BarChart data={sampleFacultyData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                  <YAxis domain={[0, 5]} />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <ChartLegend content={<ChartLegendContent />} />
-                  <Area yAxisId="left" type="monotone" dataKey="performance" fill="#8884d8" fillOpacity={0.3} stroke="#8884d8" name="Performance" />
-                  <Line yAxisId="left" type="monotone" dataKey="engagement" stroke="#82ca9d" strokeWidth={3} name="Engagement" dot={{ r: 4 }} />
-                  <Line yAxisId="left" type="monotone" dataKey="satisfaction" stroke="#ffc658" strokeWidth={2} name="Satisfaction" dot={{ r: 3 }} />
-                  <Bar yAxisId="right" dataKey="growth" fill="#ff7c7c" name="Growth %" />
-                </ComposedChart>
+                  <Bar dataKey="overall" fill="#8884d8" name="Overall" />
+                  <Bar dataKey="engagement" fill="#82ca9d" name="Engagement" />
+                  <Bar dataKey="communication" fill="#ffc658" name="Communication" />
+                  <Bar dataKey="pedagogy" fill="#ff7c7c" name="Pedagogy" />
+                </BarChart>
               </ChartContainer>
             </CardContent>
           </Card>
@@ -912,33 +697,13 @@ const AdminDashboard = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5" />
+                <Target className="w-5 h-5" />
                 Performance Distribution
               </CardTitle>
-              <CardDescription>Faculty performance categories with insights</CardDescription>
+              <CardDescription>Faculty performance categories</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 gap-3 mb-4">
-                {performanceCategories.map((category, index) => (
-                  <div key={category.name} className="flex items-center justify-between p-3 rounded-lg border hover:bg-gray-50">
-                    <div className="flex items-center gap-3">
-                      <div 
-                        className="w-4 h-4 rounded-full" 
-                        style={{ backgroundColor: category.fill }}
-                      />
-                      <div>
-                        <span className="text-sm font-medium">{category.name}</span>
-                        <p className="text-xs text-muted-foreground">{category.description}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-lg font-bold">{category.percentage}%</div>
-                      <div className="text-xs text-muted-foreground">{category.value} faculty</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <ChartContainer config={chartConfig} className="h-[200px]">
+              <ChartContainer config={chartConfig} className="h-[300px]">
                 <PieChart>
                   <Pie
                     data={performanceCategories}
@@ -967,117 +732,23 @@ const AdminDashboard = () => {
           </Card>
         </div>
 
-        {/* Faculty Performance Comparison Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="w-5 h-5" />
-              Faculty Performance Analysis
-            </CardTitle>
-            <CardDescription>Individual faculty performance across multiple criteria</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={chartConfig} className="h-[450px]">
-              <BarChart data={sampleFacultyData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                <YAxis domain={[0, 5]} />
-                <ChartTooltip 
-                  content={<ChartTooltipContent 
-                    formatter={(value, name, props) => [
-                      typeof value === 'number' ? value.toFixed(1) : value,
-                      name,
-                      `Department: ${props.payload.department}`,
-                      `Ratings: ${props.payload.ratings}`,
-                      `Subjects: ${props.payload.subjects}`,
-                      `Satisfaction: ${props.payload.satisfaction}`
-                    ]}
-                  />} 
-                />
-                <ChartLegend content={<ChartLegendContent />} />
-                <Bar dataKey="overall" fill="#8884d8" name="Overall" radius={[2, 2, 0, 0]} />
-                <Bar dataKey="engagement" fill="#82ca9d" name="Engagement" radius={[2, 2, 0, 0]} />
-                <Bar dataKey="communication" fill="#ffc658" name="Communication" radius={[2, 2, 0, 0]} />
-                <Bar dataKey="pedagogy" fill="#ff7c7c" name="Pedagogy" radius={[2, 2, 0, 0]} />
-                <Bar dataKey="consistency" fill="#8dd1e1" name="Consistency" radius={[2, 2, 0, 0]} />
-              </BarChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
-        {/* Department Performance Analysis */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Department Performance Overview</CardTitle>
-            <CardDescription>Department-wise analysis with excellence indicators</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <ChartContainer config={chartConfig} className="h-[400px]">
-                <ComposedChart data={departmentAnalysis} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                  <YAxis yAxisId="left" orientation="left" />
-                  <YAxis yAxisId="right" orientation="right" />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <ChartLegend content={<ChartLegendContent />} />
-                  <Bar yAxisId="left" dataKey="score" fill="#8884d8" name="Avg Score" radius={[2, 2, 0, 0]} />
-                  <Bar yAxisId="left" dataKey="excellent" fill="#10b981" name="Excellent Faculty" radius={[2, 2, 0, 0]} />
-                  <Line yAxisId="right" type="monotone" dataKey="participation" stroke="#ff7300" strokeWidth={3} name="Participation %" dot={{ r: 5 }} />
-                </ComposedChart>
-              </ChartContainer>
-              
-              <div className="space-y-4">
-                <h4 className="font-semibold">Department Insights</h4>
-                {departmentAnalysis.map((dept, index) => (
-                  <div key={dept.name} className="p-4 border rounded-lg">
-                    <div className="flex justify-between items-start mb-2">
-                      <h5 className="font-medium">{dept.name}</h5>
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        dept.score >= 4.5 ? 'bg-green-100 text-green-800' :
-                        dept.score >= 4.0 ? 'bg-blue-100 text-blue-800' :
-                        dept.score >= 3.5 ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {dept.score.toFixed(1)}/5.0
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
-                      <div>Faculty: {dept.faculty}</div>
-                      <div>Participation: {dept.participation}%</div>
-                      <div>Excellent: {dept.excellent}</div>
-                      <div>Need Support: {dept.needsImprovement}</div>
-                    </div>
-                    <div className="mt-2">
-                      <Progress value={(dept.excellent / dept.faculty) * 100} className="h-2" />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {Math.round((dept.excellent / dept.faculty) * 100)}% faculty performing excellently
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Faculty Ratings Summary Table */}
+        {/* Faculty Ratings Table */}
         {facultyRatings.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Faculty Performance Dashboard</CardTitle>
-              <CardDescription>Complete faculty analytics with performance trends and actionable insights</CardDescription>
+              <CardTitle>Faculty Performance Summary</CardTitle>
+              <CardDescription>Real-time faculty performance data from {currentYear}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse border border-gray-200">
                   <thead>
                     <tr className="bg-gray-50">
-                      <th className="border border-gray-200 px-4 py-2 text-left">Faculty Details</th>
-                      <th className="border border-gray-200 px-4 py-2 text-center">Performance Metrics</th>
-                      <th className="border border-gray-200 px-4 py-2 text-center">Subject Areas</th>
-                      <th className="border border-gray-200 px-4 py-2 text-center">Student Feedback</th>
-                      <th className="border border-gray-200 px-4 py-2 text-center">Improvement Trend</th>
+                      <th className="border border-gray-200 px-4 py-2 text-left">Faculty</th>
+                      <th className="border border-gray-200 px-4 py-2 text-center">Overall Rating</th>
+                      <th className="border border-gray-200 px-4 py-2 text-center">Total Ratings</th>
+                      <th className="border border-gray-200 px-4 py-2 text-center">Subjects</th>
+                      <th className="border border-gray-200 px-4 py-2 text-center">Status</th>
                       <th className="border border-gray-200 px-4 py-2 text-center">Actions</th>
                     </tr>
                   </thead>
@@ -1095,74 +766,38 @@ const AdminDashboard = () => {
                           </div>
                         </td>
                         <td className="border border-gray-200 px-4 py-2 text-center">
-                          <div className="space-y-1">
-                            <span className={`px-2 py-1 rounded text-sm font-medium ${
-                              faculty.overall_average >= 4.5 ? 'bg-green-100 text-green-800' :
-                              faculty.overall_average >= 4 ? 'bg-blue-100 text-blue-800' :
-                              faculty.overall_average >= 3.5 ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-red-100 text-red-800'
-                            }`}>
-                              {faculty.overall_average.toFixed(1)}/5.0
-                            </span>
-                            <div className="text-xs text-gray-500">
-                              {faculty.total_ratings} ratings
-                            </div>
-                            <div className="text-xs">
-                              Consistency: {(faculty.consistency_score || 0).toFixed(1)}
-                            </div>
-                          </div>
+                          <span className={`px-2 py-1 rounded text-sm font-medium ${
+                            faculty.overall_average >= 4.5 ? 'bg-green-100 text-green-800' :
+                            faculty.overall_average >= 4 ? 'bg-blue-100 text-blue-800' :
+                            faculty.overall_average >= 3.5 ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {faculty.overall_average.toFixed(1)}/5.0
+                          </span>
+                        </td>
+                        <td className="border border-gray-200 px-4 py-2 text-center">
+                          <div className="text-sm font-medium">{faculty.total_ratings}</div>
                         </td>
                         <td className="border border-gray-200 px-4 py-2 text-center">
                           <div className="text-sm">
                             {(faculty.subjects_taught || []).length} subjects
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {(faculty.subjects_taught || []).slice(0, 2).join(', ')}
-                            {(faculty.subjects_taught || []).length > 2 && '...'}
                           </div>
                         </td>
                         <td className="border border-gray-200 px-4 py-2 text-center">
                           <div className="text-sm font-medium">
                             {faculty.student_satisfaction}
                           </div>
-                          <div className="text-xs text-gray-500">
-                            {(faculty.feedbacks || []).length} feedback comments
-                          </div>
                         </td>
                         <td className="border border-gray-200 px-4 py-2 text-center">
-                          <div className={`text-sm font-medium ${
-                            (faculty.improvement_trend || 0) > 0 ? 'text-green-600' : 
-                            (faculty.improvement_trend || 0) < 0 ? 'text-red-600' : 'text-gray-600'
-                          }`}>
-                            {(faculty.improvement_trend || 0) > 0 ? '↗' : 
-                             (faculty.improvement_trend || 0) < 0 ? '↘' : '→'} 
-                            {Math.abs(faculty.improvement_trend || 0).toFixed(2)}
-                          </div>
-                        </td>
-                        <td className="border border-gray-200 px-4 py-2 text-center">
-                          <div className="space-y-2">
-                            {index < 3 && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                <Award className="w-3 h-3 mr-1" />
-                                Top {index + 1}
-                              </span>
-                            )}
-                            {faculty.overall_average < 3.5 && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                <Target className="w-3 h-3 mr-1" />
-                                Action Needed
-                              </span>
-                            )}
-                            <Button
-                              onClick={() => handleViewFacultyDetail(faculty.faculty_id)}
-                              size="sm"
-                              variant="outline"
-                              className="flex items-center gap-1 w-full"
-                            >
-                              <Eye className="w-3 h-3" />
-                              Detailed View
-                            </Button>
-                          </div>
+                          <Button
+                            onClick={() => handleViewFacultyDetail(faculty.faculty_id)}
+                            size="sm"
+                            variant="outline"
+                            className="flex items-center gap-1"
+                          >
+                            <Eye className="w-3 h-3" />
+                            Details
+                          </Button>
                         </td>
                       </tr>
                     ))}
