@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -89,10 +88,22 @@ const StudentRate = () => {
 
         console.log("Current user:", user.id);
 
-        // Get student profile
+        // Get student profile with section and semester info
         const { data: profile, error: profileError } = await supabase
           .from("student_profiles")
-          .select("*")
+          .select(`
+            *,
+            sections!inner (
+              id,
+              name,
+              semester_id,
+              semesters!inner (
+                id,
+                name,
+                year_id
+              )
+            )
+          `)
           .eq("user_id", user.id)
           .single();
 
@@ -110,7 +121,8 @@ const StudentRate = () => {
         console.log("Student profile:", profile);
         setStudentProfile(profile);
 
-        // Get faculty assignments for the student's section
+        // Get faculty assignments for the student's specific section
+        // Filter by both section_id and ensure subjects belong to the same section
         const { data: assignments, error: assignmentsError } = await supabase
           .from("faculty_assignments")
           .select(`
@@ -123,22 +135,32 @@ const StudentRate = () => {
             ),
             subjects!inner (
               id,
-              name
+              name,
+              section_id
             ),
             sections!inner (
               id,
-              name
+              name,
+              semester_id
             )
           `)
-          .eq("section_id", profile.section_id);
+          .eq("section_id", profile.section_id)
+          .eq("subjects.section_id", profile.section_id);
 
         if (assignmentsError) {
           console.error("Error fetching faculty assignments:", assignmentsError);
           throw assignmentsError;
         }
 
-        console.log("Faculty assignments:", assignments);
-        setFacultyAssignments(assignments || []);
+        console.log("Faculty assignments for section:", assignments);
+        
+        // Filter assignments to ensure they belong to the same semester
+        const filteredAssignments = assignments?.filter(assignment => 
+          assignment.sections.semester_id === profile.sections.semester_id
+        ) || [];
+
+        console.log("Filtered faculty assignments:", filteredAssignments);
+        setFacultyAssignments(filteredAssignments);
         
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -177,6 +199,25 @@ const StudentRate = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         throw new Error("User not authenticated");
+      }
+
+      // Check if student has already rated this faculty for this subject
+      const { data: existingRating } = await supabase
+        .from("faculty_credentials_ratings")
+        .select("id")
+        .eq("faculty_assignment_id", values.facultyAssignmentId)
+        .eq("student_id", user.id)
+        .eq("subject_id", selectedAssignment.subjects.id)
+        .single();
+
+      if (existingRating) {
+        toast({
+          title: "Already Rated",
+          description: "You have already rated this faculty for this subject.",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
       }
 
       // Insert rating
@@ -253,6 +294,11 @@ const StudentRate = () => {
           <div>
             <h1 className="text-3xl font-bold">Rate Faculty Performance</h1>
             <p className="text-muted-foreground">Provide feedback to help improve teaching quality</p>
+            {studentProfile && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Section: {studentProfile.sections?.name} | Semester: {studentProfile.sections?.semesters?.name}
+              </p>
+            )}
           </div>
         </div>
 
@@ -284,7 +330,7 @@ const StudentRate = () => {
                         <SelectContent>
                           {facultyAssignments.length === 0 ? (
                             <SelectItem value="no-faculty" disabled>
-                              No faculty assignments found for your section
+                              No faculty assignments found for your section and semester
                             </SelectItem>
                           ) : (
                             facultyAssignments.map((assignment) => (
