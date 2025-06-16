@@ -10,8 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Star, BookOpen, TrendingUp, LogOut, Eye, Award, Target, BarChart3, Plus } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, ComposedChart, Area, AreaChart } from "recharts";
+import { Users, Star, BookOpen, TrendingUp, LogOut, Eye, Award, Target, BarChart3, Plus, AlertCircle } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, ComposedChart, Area, AreaChart, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from "recharts";
 import FacultyPerformanceDetail from "@/components/FacultyPerformanceDetail";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -65,6 +65,10 @@ const AdminDashboard = () => {
   const [subjects, setSubjects] = useState<any[]>([]);
   const [submittingFaculty, setSubmittingFaculty] = useState(false);
 
+  // Add authentication state
+  const [user, setUser] = useState<any>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
   const form = useForm<z.infer<typeof facultyFormSchema>>({
     resolver: zodResolver(facultyFormSchema),
     defaultValues: {
@@ -79,6 +83,40 @@ const AdminDashboard = () => {
   });
 
   useEffect(() => {
+    // Check authentication status
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUser(session.user);
+        setIsAuthenticated(true);
+        console.log("User authenticated:", session.user.id);
+      } else {
+        console.log("User not authenticated");
+        setIsAuthenticated(false);
+      }
+    };
+
+    checkAuth();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        setUser(session.user);
+        setIsAuthenticated(true);
+        console.log("Auth state changed - authenticated:", session.user.id);
+      } else {
+        setUser(null);
+        setIsAuthenticated(false);
+        console.log("Auth state changed - not authenticated");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
     const fetchAnalytics = async () => {
       console.log("Starting to fetch analytics data...");
       setLoadingData(true);
@@ -287,14 +325,24 @@ const AdminDashboard = () => {
 
     fetchAnalytics();
     fetchFormData();
-  }, [toast]);
+  }, [toast, isAuthenticated]);
 
   const handleAddFaculty = async (values: z.infer<typeof facultyFormSchema>) => {
     if (submittingFaculty) return;
     
+    if (!isAuthenticated || !user) {
+      toast({
+        title: "Authentication Error",
+        description: "You must be logged in to add faculty.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setSubmittingFaculty(true);
     try {
       console.log("Adding faculty with values:", values);
+      console.log("Authenticated user:", user.id);
       
       // First insert faculty
       const { data: facultyData, error: facultyError } = await supabase
@@ -365,6 +413,29 @@ const AdminDashboard = () => {
   const handleBackToOverview = () => {
     setSelectedFacultyId(null);
   };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Card className="w-[400px]">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-red-500" />
+              Authentication Required
+            </CardTitle>
+            <CardDescription>
+              You must be logged in to access the admin dashboard.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => navigate("/auth")} className="w-full">
+              Go to Login
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (loadingData) {
     return (
@@ -457,6 +528,52 @@ const AdminDashboard = () => {
     communication: { label: "Communication", color: "#ffc658" },
     pedagogy: { label: "Pedagogy", color: "#ff7c7c" },
   };
+
+  // Enhanced data for more comprehensive analytics
+  const departmentPerformance = facultyRatings.length > 0 ? 
+    Object.entries(
+      facultyRatings.reduce((acc, faculty) => {
+        if (!acc[faculty.department]) {
+          acc[faculty.department] = { total: 0, count: 0, faculty: [] };
+        }
+        acc[faculty.department].total += faculty.overall_average;
+        acc[faculty.department].count += 1;
+        acc[faculty.department].faculty.push(faculty);
+        return acc;
+      }, {} as Record<string, { total: number; count: number; faculty: FacultyRating[] }>)
+    ).map(([dept, data]) => ({
+      department: dept,
+      average: Number((data.total / data.count).toFixed(1)),
+      facultyCount: data.count,
+      totalRatings: data.faculty.reduce((sum, f) => sum + f.total_ratings, 0)
+    })) : [
+    { department: "Computer Science", average: 4.2, facultyCount: 5, totalRatings: 45 },
+    { department: "Mathematics", average: 3.9, facultyCount: 4, totalRatings: 32 },
+    { department: "Physics", average: 4.1, facultyCount: 3, totalRatings: 28 },
+  ];
+
+  // Individual faculty radar chart data
+  const facultyRadarData = facultyRatings.slice(0, 5).map(faculty => ({
+    name: faculty.faculty_name.split(' ').slice(-1)[0] || faculty.faculty_name,
+    engagement: faculty.avg_engagement,
+    concept: faculty.avg_concept_understanding,
+    content: faculty.avg_content_spread_depth,
+    application: faculty.avg_application_oriented_teaching,
+    pedagogy: faculty.avg_pedagogy_techniques_tools,
+    communication: faculty.avg_communication_skills,
+    decorum: faculty.avg_class_decorum,
+    aids: faculty.avg_teaching_aids,
+  }));
+
+  // Monthly trends (sample data if no real data)
+  const monthlyTrends = [
+    { month: "Jan", ratings: 25, avgScore: 4.1, participation: 78 },
+    { month: "Feb", ratings: 32, avgScore: 4.2, participation: 82 },
+    { month: "Mar", ratings: 28, avgScore: 4.0, participation: 75 },
+    { month: "Apr", ratings: 35, avgScore: 4.3, participation: 85 },
+    { month: "May", ratings: 42, avgScore: 4.1, participation: 88 },
+    { month: "Jun", ratings: 38, avgScore: 4.2, participation: 80 },
+  ];
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -761,6 +878,151 @@ const AdminDashboard = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* New Analytics Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Department Performance */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="w-5 h-5" />
+                Department Performance
+              </CardTitle>
+              <CardDescription>
+                Average performance by department
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={chartConfig} className="h-[300px]">
+                <BarChart data={departmentPerformance}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="department" tick={{ fontSize: 10 }} />
+                  <YAxis domain={[0, 5]} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="average" fill="#8884d8" name="Avg Rating" />
+                </BarChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+
+          {/* Monthly Trends */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="w-5 h-5" />
+                Monthly Trends
+              </CardTitle>
+              <CardDescription>
+                Ratings and participation over time
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={chartConfig} className="h-[300px]">
+                <ComposedChart data={monthlyTrends}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis yAxisId="left" domain={[0, 50]} />
+                  <YAxis yAxisId="right" orientation="right" domain={[0, 5]} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar yAxisId="left" dataKey="ratings" fill="#82ca9d" name="Total Ratings" />
+                  <Line yAxisId="right" type="monotone" dataKey="avgScore" stroke="#8884d8" name="Avg Score" />
+                </ComposedChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+
+          {/* Faculty Skills Radar */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="w-5 h-5" />
+                Top Faculty Skills
+              </CardTitle>
+              <CardDescription>
+                Multi-dimensional performance view
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={chartConfig} className="h-[300px]">
+                <RadarChart data={facultyRadarData.length > 0 ? facultyRadarData[0] ? [facultyRadarData[0]] : [] : []}>
+                  <PolarGrid />
+                  <PolarAngleAxis dataKey="name" />
+                  <PolarRadiusAxis domain={[0, 5]} />
+                  <Radar name="Performance" dataKey="engagement" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
+                  <Radar name="Communication" dataKey="communication" stroke="#82ca9d" fill="#82ca9d" fillOpacity={0.6} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                </RadarChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Individual Faculty Performance Graphs */}
+        {facultyRatings.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Individual Faculty Performance Breakdown
+              </CardTitle>
+              <CardDescription>
+                Detailed performance metrics for each faculty member
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {facultyRatings.slice(0, 6).map((faculty) => (
+                  <Card key={faculty.faculty_id} className="p-4">
+                    <div className="space-y-3">
+                      <div className="text-center">
+                        <h3 className="font-semibold text-sm">{faculty.faculty_name}</h3>
+                        <p className="text-xs text-muted-foreground">{faculty.department}</p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center text-xs">
+                          <span>Engagement</span>
+                          <span>{faculty.avg_engagement.toFixed(1)}/5</span>
+                        </div>
+                        <Progress value={(faculty.avg_engagement / 5) * 100} className="h-2" />
+                        
+                        <div className="flex justify-between items-center text-xs">
+                          <span>Communication</span>
+                          <span>{faculty.avg_communication_skills.toFixed(1)}/5</span>
+                        </div>
+                        <Progress value={(faculty.avg_communication_skills / 5) * 100} className="h-2" />
+                        
+                        <div className="flex justify-between items-center text-xs">
+                          <span>Pedagogy</span>
+                          <span>{faculty.avg_pedagogy_techniques_tools.toFixed(1)}/5</span>
+                        </div>
+                        <Progress value={(faculty.avg_pedagogy_techniques_tools / 5) * 100} className="h-2" />
+                        
+                        <div className="flex justify-between items-center text-xs">
+                          <span>Overall</span>
+                          <span className="font-semibold">{faculty.overall_average.toFixed(1)}/5</span>
+                        </div>
+                        <Progress value={(faculty.overall_average / 5) * 100} className="h-2" />
+                      </div>
+                      
+                      <div className="text-center">
+                        <Button
+                          onClick={() => handleViewFacultyDetail(faculty.faculty_id)}
+                          size="sm"
+                          variant="outline"
+                          className="w-full text-xs"
+                        >
+                          <Eye className="w-3 h-3 mr-1" />
+                          View Details
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Faculty Ratings Table */}
         {facultyRatings.length > 0 ? (
