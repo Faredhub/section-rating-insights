@@ -615,14 +615,22 @@ const AdminDashboard = () => {
   // Filter subjects based on selected section
   useEffect(() => {
     if (selectedSection && selectedSection !== "all") {
-      const subjectsInSection = subjects.filter(subject => subject.section_id === selectedSection);
-      setFilteredSubjects(subjectsInSection);
+      // Get subjects that have faculty assignments in the selected section
+      const subjectsWithAssignments = allFacultyData
+        .flatMap(faculty => faculty.faculty_assignments || [])
+        .filter(assignment => assignment.section_id === selectedSection)
+        .map(assignment => assignment.subjects)
+        .filter((subject, index, self) => 
+          index === self.findIndex(s => s.id === subject.id)
+        );
+      
+      setFilteredSubjects(subjectsWithAssignments);
       setSelectedSubject("all"); // Reset subject when section changes
     } else {
       setFilteredSubjects([]);
       setSelectedSubject("all");
     }
-  }, [selectedSection, subjects]);
+  }, [selectedSection, allFacultyData]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -660,21 +668,21 @@ const AdminDashboard = () => {
             department,
             position,
             email,
-            faculty_assignments!inner (
+            faculty_assignments (
               id,
               section_id,
               subject_id,
-              sections!inner (
+              sections (
                 id,
                 name,
                 semester_id,
-                semesters!inner (
+                semesters (
                   id,
                   name,
                   year_id
                 )
               ),
-              subjects!inner (
+              subjects (
                 id,
                 name,
                 section_id
@@ -837,7 +845,7 @@ const AdminDashboard = () => {
         console.error("Error fetching analytics:", error);
         toast({
           title: "Error",
-          description: "Failed to fetch some analytics data. Showing available information.",
+          description: "Failed to load some analytics data. Showing available information.",
           variant: "destructive"
         });
       } finally {

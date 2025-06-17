@@ -42,6 +42,7 @@ interface FacultyAssignment {
   sections: {
     id: string;
     name: string;
+    semester_id: string;
   };
 }
 
@@ -122,7 +123,7 @@ const StudentRate = () => {
         setStudentProfile(profile);
 
         // Get faculty assignments for the student's specific section and semester
-        // First get all faculty assignments for the section
+        // Updated query to be more comprehensive
         const { data: assignments, error: assignmentsError } = await supabase
           .from("faculty_assignments")
           .select(`
@@ -138,8 +139,7 @@ const StudentRate = () => {
             ),
             subjects!inner (
               id,
-              name,
-              section_id
+              name
             ),
             sections!inner (
               id,
@@ -154,23 +154,27 @@ const StudentRate = () => {
           throw assignmentsError;
         }
 
-        console.log("Faculty assignments for section:", assignments);
+        console.log("Raw faculty assignments:", assignments);
         
-        // Filter assignments to ensure they belong to the same semester and section
+        // Filter assignments to match student's semester
         const filteredAssignments = assignments?.filter(assignment => {
-          console.log("Checking assignment:", assignment);
-          console.log("Assignment semester_id:", assignment.sections.semester_id);
-          console.log("Profile semester_id:", profile.sections.semester_id);
-          console.log("Assignment section_id:", assignment.section_id);
-          console.log("Profile section_id:", profile.section_id);
-          console.log("Subject section_id:", assignment.subjects.section_id);
+          console.log("Checking assignment:", {
+            assignmentId: assignment.id,
+            facultyName: assignment.faculty.name,
+            subjectName: assignment.subjects.name,
+            sectionName: assignment.sections.name,
+            assignmentSemesterId: assignment.sections.semester_id,
+            studentSemesterId: profile.sections.semester_id,
+            match: assignment.sections.semester_id === profile.sections.semester_id
+          });
           
-          return assignment.sections.semester_id === profile.sections.semester_id && 
-                 assignment.section_id === profile.section_id &&
-                 assignment.subjects.section_id === profile.section_id;
+          return assignment.sections.semester_id === profile.sections.semester_id;
         }) || [];
 
-        console.log("Filtered faculty assignments:", filteredAssignments);
+        console.log("Filtered faculty assignments for student:", filteredAssignments);
+        console.log("Student section_id:", profile.section_id);
+        console.log("Student semester_id:", profile.sections.semester_id);
+        
         setFacultyAssignments(filteredAssignments);
         
       } catch (error) {
@@ -356,6 +360,11 @@ const StudentRate = () => {
                         </SelectContent>
                       </Select>
                       <FormMessage />
+                      {facultyAssignments.length === 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          Debug info: Section ID: {studentProfile?.section_id}, Semester ID: {studentProfile?.sections?.semester_id}
+                        </p>
+                      )}
                     </FormItem>
                   )}
                 />
