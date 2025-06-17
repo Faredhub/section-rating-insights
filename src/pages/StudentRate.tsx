@@ -121,12 +121,15 @@ const StudentRate = () => {
         console.log("Student profile:", profile);
         setStudentProfile(profile);
 
-        // Get faculty assignments for the student's specific section
-        // Filter by both section_id and ensure subjects belong to the same section
+        // Get faculty assignments for the student's specific section and semester
+        // First get all faculty assignments for the section
         const { data: assignments, error: assignmentsError } = await supabase
           .from("faculty_assignments")
           .select(`
             id,
+            faculty_id,
+            section_id,
+            subject_id,
             faculty!inner (
               id,
               name,
@@ -144,8 +147,7 @@ const StudentRate = () => {
               semester_id
             )
           `)
-          .eq("section_id", profile.section_id)
-          .eq("subjects.section_id", profile.section_id);
+          .eq("section_id", profile.section_id);
 
         if (assignmentsError) {
           console.error("Error fetching faculty assignments:", assignmentsError);
@@ -154,10 +156,19 @@ const StudentRate = () => {
 
         console.log("Faculty assignments for section:", assignments);
         
-        // Filter assignments to ensure they belong to the same semester
-        const filteredAssignments = assignments?.filter(assignment => 
-          assignment.sections.semester_id === profile.sections.semester_id
-        ) || [];
+        // Filter assignments to ensure they belong to the same semester and section
+        const filteredAssignments = assignments?.filter(assignment => {
+          console.log("Checking assignment:", assignment);
+          console.log("Assignment semester_id:", assignment.sections.semester_id);
+          console.log("Profile semester_id:", profile.sections.semester_id);
+          console.log("Assignment section_id:", assignment.section_id);
+          console.log("Profile section_id:", profile.section_id);
+          console.log("Subject section_id:", assignment.subjects.section_id);
+          
+          return assignment.sections.semester_id === profile.sections.semester_id && 
+                 assignment.section_id === profile.section_id &&
+                 assignment.subjects.section_id === profile.section_id;
+        }) || [];
 
         console.log("Filtered faculty assignments:", filteredAssignments);
         setFacultyAssignments(filteredAssignments);

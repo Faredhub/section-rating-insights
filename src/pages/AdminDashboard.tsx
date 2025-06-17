@@ -10,8 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Star, BookOpen, TrendingUp, LogOut, Eye, Award, Target, BarChart3, Plus, AlertCircle } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, ComposedChart, Area, AreaChart, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from "recharts";
+import { Users, Star, BookOpen, TrendingUp, LogOut, Eye, Target, BarChart3, Plus, AlertCircle, Filter } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, PieChart, Pie, Cell, ComposedChart, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from "recharts";
 import FacultyPerformanceDetail from "@/components/FacultyPerformanceDetail";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -49,10 +49,488 @@ interface FacultyRating {
   student_satisfaction?: string;
 }
 
+const Filters = ({
+  semesters,
+  filteredSections,
+  filteredSubjects,
+  selectedSemester,
+  selectedSection,
+  selectedSubject,
+  setSelectedSemester,
+  setSelectedSection,
+  setSelectedSubject,
+}: {
+  semesters: any[];
+  filteredSections: any[];
+  filteredSubjects: any[];
+  selectedSemester: string;
+  selectedSection: string;
+  selectedSubject: string;
+  setSelectedSemester: React.Dispatch<React.SetStateAction<string>>;
+  setSelectedSection: React.Dispatch<React.SetStateAction<string>>;
+  setSelectedSubject: React.Dispatch<React.SetStateAction<string>>;
+}) => {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Filter className="w-5 h-5" />
+          Filter Faculty Data
+        </CardTitle>
+        <CardDescription>
+          Filter faculty by semester, section, and subject to view specific performance data
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="text-sm font-medium mb-2 block">Semester</label>
+            <Select value={selectedSemester} onValueChange={setSelectedSemester}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select semester" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Semesters</SelectItem>
+                {semesters.map((semester) => (
+                  <SelectItem key={semester.id} value={semester.id}>
+                    {semester.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium mb-2 block">Section</label>
+            <Select value={selectedSection} onValueChange={setSelectedSection} disabled={!selectedSemester}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select section" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Sections</SelectItem>
+                {filteredSections.map((section) => (
+                  <SelectItem key={section.id} value={section.id}>
+                    {section.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium mb-2 block">Subject</label>
+            <Select value={selectedSubject} onValueChange={setSelectedSubject} disabled={!selectedSection}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select subject" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Subjects</SelectItem>
+                {filteredSubjects.map((subject) => (
+                  <SelectItem key={subject.id} value={subject.id}>
+                    {subject.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+const KPIMetrics = ({
+  totalStudents,
+  totalFaculty,
+  totalRatings,
+  overallAverage,
+  responseRate,
+}: {
+  totalStudents: number;
+  totalFaculty: number;
+  totalRatings: number;
+  overallAverage: number;
+  responseRate: number;
+}) => {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Total Students</CardTitle>
+          <Users className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{totalStudents}</div>
+          <p className="text-xs text-muted-foreground">Active students</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Total Faculty</CardTitle>
+          <BookOpen className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{totalFaculty}</div>
+          <p className="text-xs text-muted-foreground">Registered faculty</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Total Ratings</CardTitle>
+          <Star className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{totalRatings}</div>
+          <p className="text-xs text-muted-foreground">Faculty ratings submitted</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Average Rating</CardTitle>
+          <TrendingUp className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">{overallAverage.toFixed(1)}</div>
+          <p className="text-xs text-muted-foreground">Out of 5.0</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Response Rate</CardTitle>
+          <BarChart3 className="h-4 w-4 text-blue-600" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-blue-600">{responseRate}%</div>
+          <p className="text-xs text-muted-foreground">Student participation</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+const PerformanceCharts = ({
+  facultyRatings,
+  totalRatings,
+  chartConfig,
+  performanceCategories,
+  departmentPerformance,
+  monthlyTrends,
+  facultyRadarData,
+}: {
+  facultyRatings: FacultyRating[];
+  totalRatings: number;
+  chartConfig: any;
+  performanceCategories: any[];
+  departmentPerformance: any[];
+  monthlyTrends: any[];
+  facultyRadarData: any[];
+}) => {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="w-5 h-5" />
+            Faculty Performance Comparison
+          </CardTitle>
+          <CardDescription>
+            {facultyRatings.length > 0
+              ? `Individual faculty performance across multiple criteria (${facultyRatings.length} faculty)`
+              : "Sample faculty performance data (no real data available yet)"
+            }
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer config={chartConfig} className="h-[300px]">
+            <BarChart data={facultyRatings.length > 0 ? facultyRatings.slice(0, 10).map(faculty => ({
+              name: faculty.faculty_name.split(' ').slice(-1)[0] || faculty.faculty_name,
+              overall: Number(faculty.overall_average.toFixed(1)),
+              engagement: Number(faculty.avg_engagement.toFixed(1)),
+              communication: Number(faculty.avg_communication_skills.toFixed(1)),
+              pedagogy: Number(faculty.avg_pedagogy_techniques_tools.toFixed(1)),
+              ratings: faculty.total_ratings,
+              department: faculty.department,
+            })) : [
+              { name: "Dr. Smith", overall: 4.2, engagement: 4.5, communication: 4.0, pedagogy: 4.1, ratings: 15, department: "Computer Science" },
+              { name: "Prof. Johnson", overall: 3.8, engagement: 3.9, communication: 3.7, pedagogy: 3.8, ratings: 12, department: "Mathematics" },
+              { name: "Dr. Williams", overall: 4.5, engagement: 4.6, communication: 4.4, pedagogy: 4.5, ratings: 20, department: "Physics" },
+              { name: "Prof. Brown", overall: 3.5, engagement: 3.6, communication: 3.4, pedagogy: 3.5, ratings: 8, department: "Chemistry" },
+            ]}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <YAxis domain={[0, 5]} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <ChartLegend content={<ChartLegendContent />} />
+              <Bar dataKey="overall" fill="#8884d8" name="Overall" />
+              <Bar dataKey="engagement" fill="#82ca9d" name="Engagement" />
+              <Bar dataKey="communication" fill="#ffc658" name="Communication" />
+              <Bar dataKey="pedagogy" fill="#ff7c7c" name="Pedagogy" />
+            </BarChart>
+          </ChartContainer>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="w-5 h-5" />
+            Performance Distribution
+          </CardTitle>
+          <CardDescription>
+            {facultyRatings.length > 0
+              ? `Faculty performance categories based on ${totalRatings} total ratings`
+              : "Sample performance distribution (no real data available yet)"
+            }
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer config={chartConfig} className="h-[300px]">
+            <PieChart>
+              <Pie
+                data={performanceCategories}
+                cx="50%"
+                cy="50%"
+                innerRadius={50}
+                outerRadius={100}
+                paddingAngle={5}
+                dataKey="value"
+              >
+                {performanceCategories.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.fill} />
+                ))}
+              </Pie>
+              <ChartTooltip
+                content={<ChartTooltipContent
+                  formatter={(value, name, props) => [
+                    `${value} faculty (${props.payload.percentage}%)`,
+                    name
+                  ]}
+                />}
+              />
+            </PieChart>
+          </ChartContainer>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+const AdditionalAnalytics = ({
+  chartConfig,
+  departmentPerformance,
+  monthlyTrends,
+  facultyRadarData,
+}: {
+  chartConfig: any;
+  departmentPerformance: any[];
+  monthlyTrends: any[];
+  facultyRadarData: any[];
+}) => {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Department Performance */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="w-5 h-5" />
+            Department Performance
+          </CardTitle>
+          <CardDescription>
+            Average performance by department
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer config={chartConfig} className="h-[300px]">
+            <BarChart data={departmentPerformance}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="department" tick={{ fontSize: 10 }} />
+              <YAxis domain={[0, 5]} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Bar dataKey="average" fill="#8884d8" name="Avg Rating" />
+            </BarChart>
+          </ChartContainer>
+        </CardContent>
+      </Card>
+
+      {/* Monthly Trends */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="w-5 h-5" />
+            Monthly Trends
+          </CardTitle>
+          <CardDescription>
+            Ratings and participation over time
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer config={chartConfig} className="h-[300px]">
+            <ComposedChart data={monthlyTrends}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="month" />
+              <YAxis yAxisId="left" domain={[0, 50]} />
+              <YAxis yAxisId="right" orientation="right" domain={[0, 5]} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Bar yAxisId="left" dataKey="ratings" fill="#82ca9d" name="Total Ratings" />
+              <Line yAxisId="right" type="monotone" dataKey="avgScore" stroke="#8884d8" name="Avg Score" />
+            </ComposedChart>
+          </ChartContainer>
+        </CardContent>
+      </Card>
+
+      {/* Faculty Skills Radar */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="w-5 h-5" />
+            Top Faculty Skills
+          </CardTitle>
+          <CardDescription>
+            Multi-dimensional performance view
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ChartContainer config={chartConfig} className="h-[300px]">
+            <RadarChart data={facultyRadarData.length > 0 ? facultyRadarData[0] ? [facultyRadarData[0]] : [] : []}>
+              <PolarGrid />
+              <PolarAngleAxis dataKey="name" />
+              <PolarRadiusAxis domain={[0, 5]} />
+              <Radar name="Performance" dataKey="engagement" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
+              <Radar name="Communication" dataKey="communication" stroke="#82ca9d" fill="#82ca9d" fillOpacity={0.6} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+            </RadarChart>
+          </ChartContainer>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+const FacultyTable = ({
+  filteredFacultyData,
+  filteredFacultyRatings,
+  handleViewFacultyDetail,
+}: {
+  filteredFacultyData: any[];
+  filteredFacultyRatings: FacultyRating[];
+  handleViewFacultyDetail: (facultyId: string) => void;
+}) => {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Faculty Performance Summary</CardTitle>
+        <CardDescription>Real-time faculty performance data</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse border border-gray-200">
+            <thead>
+              <tr className="bg-gray-50">
+                <th className="border border-gray-200 px-4 py-2 text-left">Faculty</th>
+                <th className="border border-gray-200 px-4 py-2 text-center">Overall Rating</th>
+                <th className="border border-gray-200 px-4 py-2 text-center">Total Ratings</th>
+                <th className="border border-gray-200 px-4 py-2 text-center">Assignments</th>
+                <th className="border border-gray-200 px-4 py-2 text-center">Status</th>
+                <th className="border border-gray-200 px-4 py-2 text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredFacultyData.map((faculty) => {
+                const ratingData = filteredFacultyRatings.find(r => r.faculty_id === faculty.id);
+                const overallRating = ratingData?.overall_average || 0;
+                const totalRatings = ratingData?.total_ratings || 0;
+
+                return (
+                  <tr key={faculty.id} className="hover:bg-gray-50">
+                    <td className="border border-gray-200 px-4 py-2">
+                      <div>
+                        <div className="font-medium">{faculty.name}</div>
+                        <div className="text-sm text-gray-500">{faculty.position}</div>
+                        <div className="text-xs text-gray-400">{faculty.department}</div>
+                      </div>
+                    </td>
+                    <td className="border border-gray-200 px-4 py-2 text-center">
+                      {totalRatings > 0 ? (
+                        <span className={`px-2 py-1 rounded text-sm font-medium ${
+                          overallRating >= 4.5 ? 'bg-green-100 text-green-800' :
+                          overallRating >= 4 ? 'bg-blue-100 text-blue-800' :
+                          overallRating >= 3.5 ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {overallRating.toFixed(1)}/5.0
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-sm">No ratings yet</span>
+                      )}
+                    </td>
+                    <td className="border border-gray-200 px-4 py-2 text-center">
+                      <div className="text-sm font-medium">{totalRatings}</div>
+                    </td>
+                    <td className="border border-gray-200 px-4 py-2 text-center">
+                      <div className="text-sm">
+                        {faculty.faculty_assignments.length} assignments
+                        <div className="text-xs text-gray-500">
+                          {faculty.faculty_assignments.map((assignment: any, index: number) => (
+                            <div key={assignment.id}>
+                              {assignment.subjects.name} - {assignment.sections.name}
+                            </div>
+                          )).slice(0, 2)}
+                          {faculty.faculty_assignments.length > 2 && <div>+{faculty.faculty_assignments.length - 2} more</div>}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="border border-gray-200 px-4 py-2 text-center">
+                      <div className="text-sm font-medium">
+                        {totalRatings > 0
+                          ? (overallRating >= 4.5 ? 'Excellent' :
+                             overallRating >= 4.0 ? 'Good' :
+                             overallRating >= 3.5 ? 'Average' : 'Needs Improvement')
+                          : 'Not Rated'
+                        }
+                      </div>
+                    </td>
+                    <td className="border border-gray-200 px-4 py-2 text-center">
+                      <Button
+                        onClick={() => handleViewFacultyDetail(faculty.id)}
+                        size="sm"
+                        variant="outline"
+                        className="flex items-center gap-1"
+                      >
+                        <Eye className="w-3 h-3" />
+                        Details
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {filteredFacultyData.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="border border-gray-200 px-4 py-8 text-center">
+                    <div className="text-muted-foreground">
+                      <BookOpen className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p>No faculty members found with the selected filters.</p>
+                      <p className="text-sm">Try adjusting your filter criteria.</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [facultyRatings, setFacultyRatings] = useState<FacultyRating[]>([]);
+  const [allFacultyData, setAllFacultyData] = useState<any[]>([]);
   const [totalStudents, setTotalStudents] = useState(0);
   const [totalFaculty, setTotalFaculty] = useState(0);
   const [totalRatings, setTotalRatings] = useState(0);
@@ -64,6 +542,13 @@ const AdminDashboard = () => {
   const [sections, setSections] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<any[]>([]);
   const [submittingFaculty, setSubmittingFaculty] = useState(false);
+
+  // Add filter states
+  const [selectedSemester, setSelectedSemester] = useState<string>("");
+  const [selectedSection, setSelectedSection] = useState<string>("");
+  const [selectedSubject, setSelectedSubject] = useState<string>("");
+  const [filteredSections, setFilteredSections] = useState<any[]>([]);
+  const [filteredSubjects, setFilteredSubjects] = useState<any[]>([]);
 
   // Add authentication state
   const [user, setUser] = useState<any>(null);
@@ -114,13 +599,39 @@ const AdminDashboard = () => {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Filter sections based on selected semester
+  useEffect(() => {
+    if (selectedSemester) {
+      const sectionsInSemester = sections.filter(section => section.semester_id === selectedSemester);
+      setFilteredSections(sectionsInSemester);
+      setSelectedSection(""); // Reset section when semester changes
+      setSelectedSubject(""); // Reset subject when semester changes
+    } else {
+      setFilteredSections([]);
+      setSelectedSection("");
+      setSelectedSubject("");
+    }
+  }, [selectedSemester, sections]);
+
+  // Filter subjects based on selected section
+  useEffect(() => {
+    if (selectedSection) {
+      const subjectsInSection = subjects.filter(subject => subject.section_id === selectedSection);
+      setFilteredSubjects(subjectsInSection);
+      setSelectedSubject(""); // Reset subject when section changes
+    } else {
+      setFilteredSubjects([]);
+      setSelectedSubject("");
+    }
+  }, [selectedSection, subjects]);
+
   useEffect(() => {
     if (!isAuthenticated) return;
 
     const fetchAnalytics = async () => {
       console.log("Starting to fetch analytics data...");
       setLoadingData(true);
-      
+
       try {
         // Fetch basic stats first
         console.log("Fetching basic stats...");
@@ -139,6 +650,45 @@ const AdminDashboard = () => {
           ratings: ratingsCountResult.count,
           students: studentsCountResult.count
         });
+
+        // Fetch all faculty data with their assignments (including those without ratings)
+        console.log("Fetching all faculty data...");
+        const { data: allFaculty, error: facultyError } = await supabase
+          .from("faculty")
+          .select(`
+            id,
+            name,
+            department,
+            position,
+            email,
+            faculty_assignments!inner (
+              id,
+              section_id,
+              subject_id,
+              sections!inner (
+                id,
+                name,
+                semester_id,
+                semesters!inner (
+                  id,
+                  name,
+                  year_id
+                )
+              ),
+              subjects!inner (
+                id,
+                name,
+                section_id
+              )
+            )
+          `);
+
+        if (facultyError) {
+          console.error("Error fetching faculty data:", facultyError);
+        } else {
+          console.log("All faculty data:", allFaculty);
+          setAllFacultyData(allFaculty || []);
+        }
 
         // Fetch faculty ratings with detailed analytics
         console.log("Fetching faculty ratings...");
@@ -164,7 +714,6 @@ const AdminDashboard = () => {
 
         if (ratingsError) {
           console.error("Error fetching ratings:", ratingsError);
-          // Don't throw error, just log it and continue with empty data
           setFacultyRatings([]);
         } else {
           console.log("Ratings data:", ratingsData);
@@ -185,11 +734,11 @@ const AdminDashboard = () => {
             const faculty = rating.faculty_assignments.faculty;
             const subject = rating.faculty_assignments.subjects.name;
             const facultyId = faculty.id;
-            const month = new Date(rating.created_at).toLocaleDateString('en-US', { 
-              year: 'numeric', 
-              month: 'short' 
+            const month = new Date(rating.created_at).toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'short'
             });
-            
+
             if (!facultyMap.has(facultyId)) {
               facultyMap.set(facultyId, {
                 faculty_id: facultyId,
@@ -215,16 +764,16 @@ const AdminDashboard = () => {
 
             const facultyData = facultyMap.get(facultyId)!;
             facultyData.subjects.add(subject);
-            
+
             // Calculate overall rating for this submission
             const overallRating = (
               rating.engagement + rating.concept_understanding + rating.content_spread_depth +
               rating.application_oriented_teaching + rating.pedagogy_techniques_tools +
               rating.communication_skills + rating.class_decorum + rating.teaching_aids
             ) / 8;
-            
+
             facultyData.ratings.push(overallRating);
-            
+
             // Store criteria ratings
             facultyData.criteria.engagement.push(rating.engagement);
             facultyData.criteria.concept_understanding.push(rating.concept_understanding);
@@ -234,12 +783,12 @@ const AdminDashboard = () => {
             facultyData.criteria.communication_skills.push(rating.communication_skills);
             facultyData.criteria.class_decorum.push(rating.class_decorum);
             facultyData.criteria.teaching_aids.push(rating.teaching_aids);
-            
+
             // Store feedback
             if (rating.feedback) {
               facultyData.feedbacks.push(rating.feedback);
             }
-            
+
             // Store monthly ratings for trend analysis
             if (!facultyData.monthlyRatings[month]) {
               facultyData.monthlyRatings[month] = [];
@@ -253,8 +802,8 @@ const AdminDashboard = () => {
               return acc;
             }, {} as { [key: string]: number });
 
-            const overallAverage = faculty.ratings.length > 0 
-              ? faculty.ratings.reduce((sum, val) => sum + val, 0) / faculty.ratings.length 
+            const overallAverage = faculty.ratings.length > 0
+              ? faculty.ratings.reduce((sum, val) => sum + val, 0) / faculty.ratings.length
               : 0;
 
             return {
@@ -267,17 +816,17 @@ const AdminDashboard = () => {
               feedbacks: faculty.feedbacks,
               ...criteriaAverages,
               overall_average: overallAverage,
-              consistency_score: faculty.ratings.length > 1 
-                ? 5 - (faculty.ratings.reduce((acc, rating, i, arr) => 
+              consistency_score: faculty.ratings.length > 1
+                ? 5 - (faculty.ratings.reduce((acc, rating, i, arr) =>
                     i === 0 ? 0 : acc + Math.abs(rating - arr[i-1]), 0) / (faculty.ratings.length - 1))
                 : 5,
               improvement_trend: faculty.ratings.length > 2
-                ? (faculty.ratings.slice(-3).reduce((sum, r) => sum + r, 0) / 3) - 
+                ? (faculty.ratings.slice(-3).reduce((sum, r) => sum + r, 0) / 3) -
                   (faculty.ratings.slice(0, 3).reduce((sum, r) => sum + r, 0) / 3)
                 : 0,
-              student_satisfaction: overallAverage >= 4.5 ? 'Excellent' : 
-                                 overallAverage >= 4.0 ? 'Good' : 
-                                 overallAverage >= 3.5 ? 'Average' : 'Needs Improvement'
+              student_satisfaction: overallAverage >= 4.5 ? 'Excellent' :
+                overallAverage >= 4.0 ? 'Good' :
+                  overallAverage >= 3.5 ? 'Average' : 'Needs Improvement'
             } as FacultyRating;
           });
 
@@ -302,8 +851,8 @@ const AdminDashboard = () => {
       try {
         const [yearsResult, semestersResult, sectionsResult, subjectsResult] = await Promise.all([
           supabase.from("years").select("*"),
-          supabase.from("semesters").select("*"),
-          supabase.from("sections").select("*"),
+          supabase.from("semesters").select("*, years(*)"),
+          supabase.from("sections").select("*, semesters(*)"),
           supabase.from("subjects").select("*")
         ]);
 
@@ -327,9 +876,47 @@ const AdminDashboard = () => {
     fetchFormData();
   }, [toast, isAuthenticated]);
 
+  // Filter faculty based on selected filters
+  const getFilteredFacultyData = () => {
+    if (!selectedSemester && !selectedSection && !selectedSubject) {
+      return allFacultyData;
+    }
+
+    return allFacultyData.filter(faculty => {
+      return faculty.faculty_assignments.some((assignment: any) => {
+        const matchesSemester = !selectedSemester || assignment.sections.semester_id === selectedSemester;
+        const matchesSection = !selectedSection || assignment.section_id === selectedSection;
+        const matchesSubject = !selectedSubject || assignment.subject_id === selectedSubject;
+
+        return matchesSemester && matchesSection && matchesSubject;
+      });
+    });
+  };
+
+  // Filter faculty ratings based on selected filters
+  const getFilteredFacultyRatings = () => {
+    if (!selectedSemester && !selectedSection && !selectedSubject) {
+      return facultyRatings;
+    }
+
+    return facultyRatings.filter(faculty => {
+      // Check if this faculty has assignments matching the filters
+      const facultyData = allFacultyData.find(f => f.id === faculty.faculty_id);
+      if (!facultyData) return false;
+
+      return facultyData.faculty_assignments.some((assignment: any) => {
+        const matchesSemester = !selectedSemester || assignment.sections.semester_id === selectedSemester;
+        const matchesSection = !selectedSection || assignment.section_id === selectedSection;
+        const matchesSubject = !selectedSubject || assignment.subject_id === selectedSubject;
+
+        return matchesSemester && matchesSection && matchesSubject;
+      });
+    });
+  };
+
   const handleAddFaculty = async (values: z.infer<typeof facultyFormSchema>) => {
     if (submittingFaculty) return;
-    
+
     if (!isAuthenticated || !user) {
       toast({
         title: "Authentication Error",
@@ -338,12 +925,12 @@ const AdminDashboard = () => {
       });
       return;
     }
-    
+
     setSubmittingFaculty(true);
     try {
       console.log("Adding faculty with values:", values);
       console.log("Authenticated user:", user.id);
-      
+
       // First insert faculty
       const { data: facultyData, error: facultyError } = await supabase
         .from("faculty")
@@ -386,7 +973,7 @@ const AdminDashboard = () => {
 
       setIsAddFacultyOpen(false);
       form.reset();
-      
+
       // Refresh the data by reloading the page
       window.location.reload();
     } catch (error: any) {
@@ -449,8 +1036,8 @@ const AdminDashboard = () => {
     return (
       <div className="min-h-screen bg-background p-6">
         <div className="max-w-7xl mx-auto">
-          <FacultyPerformanceDetail 
-            facultyId={selectedFacultyId} 
+          <FacultyPerformanceDetail
+            facultyId={selectedFacultyId}
             onBack={handleBackToOverview}
           />
         </div>
@@ -460,18 +1047,11 @@ const AdminDashboard = () => {
 
   // Calculate real-time metrics with fallbacks
   const currentYear = new Date().getFullYear();
-  const overallAverage = facultyRatings.length > 0 
-    ? facultyRatings.reduce((sum, f) => sum + f.overall_average, 0) / facultyRatings.length 
+  const overallAverage = facultyRatings.length > 0
+    ? facultyRatings.reduce((sum, f) => sum + f.overall_average, 0) / facultyRatings.length
     : 4.1;
 
-  const excellentPerformers = facultyRatings.length > 0 
-    ? facultyRatings.filter(f => f.overall_average >= 4.5).length
-    : 3;
-
   const responseRate = totalStudents > 0 ? Math.round((totalRatings / totalStudents) * 100) : 85;
-  const satisfactionRate = facultyRatings.length > 0 
-    ? Math.round((facultyRatings.filter(f => f.overall_average >= 4.0).length / facultyRatings.length) * 100)
-    : 75;
 
   // Sample data for charts when no real data is available or to supplement real data
   const chartData = facultyRatings.length > 0 ? facultyRatings.slice(0, 10).map(faculty => ({
@@ -491,27 +1071,27 @@ const AdminDashboard = () => {
 
   // Performance distribution with real data
   const performanceCategories = facultyRatings.length > 0 ? [
-    { 
-      name: 'Excellent (4.5+)', 
-      value: facultyRatings.filter(f => f.overall_average >= 4.5).length, 
+    {
+      name: 'Excellent (4.5+)',
+      value: facultyRatings.filter(f => f.overall_average >= 4.5).length,
       fill: '#10b981',
       percentage: Math.round((facultyRatings.filter(f => f.overall_average >= 4.5).length / facultyRatings.length) * 100)
     },
-    { 
-      name: 'Good (4.0-4.4)', 
-      value: facultyRatings.filter(f => f.overall_average >= 4.0 && f.overall_average < 4.5).length, 
+    {
+      name: 'Good (4.0-4.4)',
+      value: facultyRatings.filter(f => f.overall_average >= 4.0 && f.overall_average < 4.5).length,
       fill: '#3b82f6',
       percentage: Math.round((facultyRatings.filter(f => f.overall_average >= 4.0 && f.overall_average < 4.5).length / facultyRatings.length) * 100)
     },
-    { 
-      name: 'Average (3.5-3.9)', 
-      value: facultyRatings.filter(f => f.overall_average >= 3.5 && f.overall_average < 4.0).length, 
+    {
+      name: 'Average (3.5-3.9)',
+      value: facultyRatings.filter(f => f.overall_average >= 3.5 && f.overall_average < 4.0).length,
       fill: '#f59e0b',
       percentage: Math.round((facultyRatings.filter(f => f.overall_average >= 3.5 && f.overall_average < 4.0).length / facultyRatings.length) * 100)
     },
-    { 
-      name: 'Needs Improvement (<3.5)', 
-      value: facultyRatings.filter(f => f.overall_average < 3.5).length, 
+    {
+      name: 'Needs Improvement (<3.5)',
+      value: facultyRatings.filter(f => f.overall_average < 3.5).length,
       fill: '#ef4444',
       percentage: Math.round((facultyRatings.filter(f => f.overall_average < 3.5).length / facultyRatings.length) * 100)
     }
@@ -530,7 +1110,7 @@ const AdminDashboard = () => {
   };
 
   // Enhanced data for more comprehensive analytics
-  const departmentPerformance = facultyRatings.length > 0 ? 
+  const departmentPerformance = facultyRatings.length > 0 ?
     Object.entries(
       facultyRatings.reduce((acc, faculty) => {
         if (!acc[faculty.department]) {
@@ -547,10 +1127,10 @@ const AdminDashboard = () => {
       facultyCount: data.count,
       totalRatings: data.faculty.reduce((sum, f) => sum + f.total_ratings, 0)
     })) : [
-    { department: "Computer Science", average: 4.2, facultyCount: 5, totalRatings: 45 },
-    { department: "Mathematics", average: 3.9, facultyCount: 4, totalRatings: 32 },
-    { department: "Physics", average: 4.1, facultyCount: 3, totalRatings: 28 },
-  ];
+      { department: "Computer Science", average: 4.2, facultyCount: 5, totalRatings: 45 },
+      { department: "Mathematics", average: 3.9, facultyCount: 4, totalRatings: 32 },
+      { department: "Physics", average: 4.1, facultyCount: 3, totalRatings: 28 },
+    ];
 
   // Individual faculty radar chart data
   const facultyRadarData = facultyRatings.slice(0, 5).map(faculty => ({
@@ -574,6 +1154,9 @@ const AdminDashboard = () => {
     { month: "May", ratings: 42, avgScore: 4.1, participation: 88 },
     { month: "Jun", ratings: 38, avgScore: 4.2, participation: 80 },
   ];
+
+  const filteredFacultyData = getFilteredFacultyData();
+  const filteredFacultyRatings = getFilteredFacultyRatings();
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -746,375 +1329,48 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* KPI Dashboard */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Students</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalStudents}</div>
-              <p className="text-xs text-muted-foreground">Active students</p>
-            </CardContent>
-          </Card>
+        <Filters
+          semesters={semesters}
+          filteredSections={filteredSections}
+          filteredSubjects={filteredSubjects}
+          selectedSemester={selectedSemester}
+          selectedSection={selectedSection}
+          selectedSubject={selectedSubject}
+          setSelectedSemester={setSelectedSemester}
+          setSelectedSection={setSelectedSection}
+          setSelectedSubject={setSelectedSubject}
+        />
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Faculty</CardTitle>
-              <BookOpen className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalFaculty}</div>
-              <p className="text-xs text-muted-foreground">Registered faculty</p>
-            </CardContent>
-          </Card>
+        <KPIMetrics
+          totalStudents={totalStudents}
+          totalFaculty={totalFaculty}
+          totalRatings={totalRatings}
+          overallAverage={overallAverage}
+          responseRate={responseRate}
+        />
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Ratings</CardTitle>
-              <Star className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalRatings}</div>
-              <p className="text-xs text-muted-foreground">Faculty ratings submitted</p>
-            </CardContent>
-          </Card>
+        <PerformanceCharts
+          facultyRatings={facultyRatings}
+          totalRatings={totalRatings}
+          chartConfig={chartConfig}
+          performanceCategories={performanceCategories}
+          departmentPerformance={departmentPerformance}
+          monthlyTrends={monthlyTrends}
+          facultyRadarData={facultyRadarData}
+        />
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Average Rating</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{overallAverage.toFixed(1)}</div>
-              <p className="text-xs text-muted-foreground">Out of 5.0</p>
-            </CardContent>
-          </Card>
+        <AdditionalAnalytics
+          chartConfig={chartConfig}
+          departmentPerformance={departmentPerformance}
+          monthlyTrends={monthlyTrends}
+          facultyRadarData={facultyRadarData}
+        />
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Response Rate</CardTitle>
-              <BarChart3 className="h-4 w-4 text-blue-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{responseRate}%</div>
-              <p className="text-xs text-muted-foreground">Student participation</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Performance Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5" />
-                Faculty Performance Comparison
-              </CardTitle>
-              <CardDescription>
-                {facultyRatings.length > 0 
-                  ? `Individual faculty performance across multiple criteria (${facultyRatings.length} faculty)`
-                  : "Sample faculty performance data (no real data available yet)"
-                }
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={chartConfig} className="h-[300px]">
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                  <YAxis domain={[0, 5]} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <ChartLegend content={<ChartLegendContent />} />
-                  <Bar dataKey="overall" fill="#8884d8" name="Overall" />
-                  <Bar dataKey="engagement" fill="#82ca9d" name="Engagement" />
-                  <Bar dataKey="communication" fill="#ffc658" name="Communication" />
-                  <Bar dataKey="pedagogy" fill="#ff7c7c" name="Pedagogy" />
-                </BarChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="w-5 h-5" />
-                Performance Distribution
-              </CardTitle>
-              <CardDescription>
-                {facultyRatings.length > 0 
-                  ? `Faculty performance categories based on ${totalRatings} total ratings`
-                  : "Sample performance distribution (no real data available yet)"
-                }
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={chartConfig} className="h-[300px]">
-                <PieChart>
-                  <Pie
-                    data={performanceCategories}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={100}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {performanceCategories.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                  <ChartTooltip 
-                    content={<ChartTooltipContent 
-                      formatter={(value, name, props) => [
-                        `${value} faculty (${props.payload.percentage}%)`,
-                        name
-                      ]}
-                    />}
-                  />
-                </PieChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* New Analytics Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Department Performance */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5" />
-                Department Performance
-              </CardTitle>
-              <CardDescription>
-                Average performance by department
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={chartConfig} className="h-[300px]">
-                <BarChart data={departmentPerformance}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="department" tick={{ fontSize: 10 }} />
-                  <YAxis domain={[0, 5]} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="average" fill="#8884d8" name="Avg Rating" />
-                </BarChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-
-          {/* Monthly Trends */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5" />
-                Monthly Trends
-              </CardTitle>
-              <CardDescription>
-                Ratings and participation over time
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={chartConfig} className="h-[300px]">
-                <ComposedChart data={monthlyTrends}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis yAxisId="left" domain={[0, 50]} />
-                  <YAxis yAxisId="right" orientation="right" domain={[0, 5]} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar yAxisId="left" dataKey="ratings" fill="#82ca9d" name="Total Ratings" />
-                  <Line yAxisId="right" type="monotone" dataKey="avgScore" stroke="#8884d8" name="Avg Score" />
-                </ComposedChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-
-          {/* Faculty Skills Radar */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="w-5 h-5" />
-                Top Faculty Skills
-              </CardTitle>
-              <CardDescription>
-                Multi-dimensional performance view
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={chartConfig} className="h-[300px]">
-                <RadarChart data={facultyRadarData.length > 0 ? facultyRadarData[0] ? [facultyRadarData[0]] : [] : []}>
-                  <PolarGrid />
-                  <PolarAngleAxis dataKey="name" />
-                  <PolarRadiusAxis domain={[0, 5]} />
-                  <Radar name="Performance" dataKey="engagement" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
-                  <Radar name="Communication" dataKey="communication" stroke="#82ca9d" fill="#82ca9d" fillOpacity={0.6} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                </RadarChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Individual Faculty Performance Graphs */}
-        {facultyRatings.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="w-5 h-5" />
-                Individual Faculty Performance Breakdown
-              </CardTitle>
-              <CardDescription>
-                Detailed performance metrics for each faculty member
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {facultyRatings.slice(0, 6).map((faculty) => (
-                  <Card key={faculty.faculty_id} className="p-4">
-                    <div className="space-y-3">
-                      <div className="text-center">
-                        <h3 className="font-semibold text-sm">{faculty.faculty_name}</h3>
-                        <p className="text-xs text-muted-foreground">{faculty.department}</p>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center text-xs">
-                          <span>Engagement</span>
-                          <span>{faculty.avg_engagement.toFixed(1)}/5</span>
-                        </div>
-                        <Progress value={(faculty.avg_engagement / 5) * 100} className="h-2" />
-                        
-                        <div className="flex justify-between items-center text-xs">
-                          <span>Communication</span>
-                          <span>{faculty.avg_communication_skills.toFixed(1)}/5</span>
-                        </div>
-                        <Progress value={(faculty.avg_communication_skills / 5) * 100} className="h-2" />
-                        
-                        <div className="flex justify-between items-center text-xs">
-                          <span>Pedagogy</span>
-                          <span>{faculty.avg_pedagogy_techniques_tools.toFixed(1)}/5</span>
-                        </div>
-                        <Progress value={(faculty.avg_pedagogy_techniques_tools / 5) * 100} className="h-2" />
-                        
-                        <div className="flex justify-between items-center text-xs">
-                          <span>Overall</span>
-                          <span className="font-semibold">{faculty.overall_average.toFixed(1)}/5</span>
-                        </div>
-                        <Progress value={(faculty.overall_average / 5) * 100} className="h-2" />
-                      </div>
-                      
-                      <div className="text-center">
-                        <Button
-                          onClick={() => handleViewFacultyDetail(faculty.faculty_id)}
-                          size="sm"
-                          variant="outline"
-                          className="w-full text-xs"
-                        >
-                          <Eye className="w-3 h-3 mr-1" />
-                          View Details
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Faculty Ratings Table */}
-        {facultyRatings.length > 0 ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>Faculty Performance Summary</CardTitle>
-              <CardDescription>Real-time faculty performance data from {currentYear} ({facultyRatings.length} faculty members)</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse border border-gray-200">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="border border-gray-200 px-4 py-2 text-left">Faculty</th>
-                      <th className="border border-gray-200 px-4 py-2 text-center">Overall Rating</th>
-                      <th className="border border-gray-200 px-4 py-2 text-center">Total Ratings</th>
-                      <th className="border border-gray-200 px-4 py-2 text-center">Subjects</th>
-                      <th className="border border-gray-200 px-4 py-2 text-center">Status</th>
-                      <th className="border border-gray-200 px-4 py-2 text-center">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {facultyRatings
-                      .slice()
-                      .sort((a, b) => b.overall_average - a.overall_average)
-                      .map((faculty, index) => (
-                      <tr key={faculty.faculty_id} className="hover:bg-gray-50">
-                        <td className="border border-gray-200 px-4 py-2">
-                          <div>
-                            <div className="font-medium">{faculty.faculty_name}</div>
-                            <div className="text-sm text-gray-500">{faculty.position}</div>
-                            <div className="text-xs text-gray-400">{faculty.department}</div>
-                          </div>
-                        </td>
-                        <td className="border border-gray-200 px-4 py-2 text-center">
-                          <span className={`px-2 py-1 rounded text-sm font-medium ${
-                            faculty.overall_average >= 4.5 ? 'bg-green-100 text-green-800' :
-                            faculty.overall_average >= 4 ? 'bg-blue-100 text-blue-800' :
-                            faculty.overall_average >= 3.5 ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-red-100 text-red-800'
-                          }`}>
-                            {faculty.overall_average.toFixed(1)}/5.0
-                          </span>
-                        </td>
-                        <td className="border border-gray-200 px-4 py-2 text-center">
-                          <div className="text-sm font-medium">{faculty.total_ratings}</div>
-                        </td>
-                        <td className="border border-gray-200 px-4 py-2 text-center">
-                          <div className="text-sm">
-                            {(faculty.subjects_taught || []).length} subjects
-                          </div>
-                        </td>
-                        <td className="border border-gray-200 px-4 py-2 text-center">
-                          <div className="text-sm font-medium">
-                            {faculty.student_satisfaction}
-                          </div>
-                        </td>
-                        <td className="border border-gray-200 px-4 py-2 text-center">
-                          <Button
-                            onClick={() => handleViewFacultyDetail(faculty.faculty_id)}
-                            size="sm"
-                            variant="outline"
-                            className="flex items-center gap-1"
-                          >
-                            <Eye className="w-3 h-3" />
-                            Details
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card>
-            <CardHeader>
-              <CardTitle>Faculty Performance Summary</CardTitle>
-              <CardDescription>No faculty ratings data available yet</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <div className="text-muted-foreground mb-4">
-                  <Star className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>No faculty ratings have been submitted yet.</p>
-                  <p className="text-sm">Once students start rating faculty, their performance data will appear here.</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        <FacultyTable
+          filteredFacultyData={filteredFacultyData}
+          filteredFacultyRatings={filteredFacultyRatings}
+          handleViewFacultyDetail={handleViewFacultyDetail}
+        />
       </div>
     </div>
   );
