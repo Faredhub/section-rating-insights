@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
-import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -90,7 +89,7 @@ const Filters = ({
                 <SelectValue placeholder="Select semester" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Semesters</SelectItem>
+                <SelectItem value="all">All Semesters</SelectItem>
                 {semesters.map((semester) => (
                   <SelectItem key={semester.id} value={semester.id}>
                     {semester.name}
@@ -102,12 +101,12 @@ const Filters = ({
 
           <div>
             <label className="text-sm font-medium mb-2 block">Section</label>
-            <Select value={selectedSection} onValueChange={setSelectedSection} disabled={!selectedSemester}>
+            <Select value={selectedSection} onValueChange={setSelectedSection} disabled={!selectedSemester || selectedSemester === "all"}>
               <SelectTrigger>
                 <SelectValue placeholder="Select section" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Sections</SelectItem>
+                <SelectItem value="all">All Sections</SelectItem>
                 {filteredSections.map((section) => (
                   <SelectItem key={section.id} value={section.id}>
                     {section.name}
@@ -119,12 +118,12 @@ const Filters = ({
 
           <div>
             <label className="text-sm font-medium mb-2 block">Subject</label>
-            <Select value={selectedSubject} onValueChange={setSelectedSubject} disabled={!selectedSection}>
+            <Select value={selectedSubject} onValueChange={setSelectedSubject} disabled={!selectedSection || selectedSection === "all"}>
               <SelectTrigger>
                 <SelectValue placeholder="Select subject" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Subjects</SelectItem>
+                <SelectItem value="all">All Subjects</SelectItem>
                 {filteredSubjects.map((subject) => (
                   <SelectItem key={subject.id} value={subject.id}>
                     {subject.name}
@@ -543,10 +542,10 @@ const AdminDashboard = () => {
   const [subjects, setSubjects] = useState<any[]>([]);
   const [submittingFaculty, setSubmittingFaculty] = useState(false);
 
-  // Add filter states
-  const [selectedSemester, setSelectedSemester] = useState<string>("");
-  const [selectedSection, setSelectedSection] = useState<string>("");
-  const [selectedSubject, setSelectedSubject] = useState<string>("");
+  // Add filter states - using "all" as default instead of empty string
+  const [selectedSemester, setSelectedSemester] = useState<string>("all");
+  const [selectedSection, setSelectedSection] = useState<string>("all");
+  const [selectedSubject, setSelectedSubject] = useState<string>("all");
   const [filteredSections, setFilteredSections] = useState<any[]>([]);
   const [filteredSubjects, setFilteredSubjects] = useState<any[]>([]);
 
@@ -601,27 +600,27 @@ const AdminDashboard = () => {
 
   // Filter sections based on selected semester
   useEffect(() => {
-    if (selectedSemester) {
+    if (selectedSemester && selectedSemester !== "all") {
       const sectionsInSemester = sections.filter(section => section.semester_id === selectedSemester);
       setFilteredSections(sectionsInSemester);
-      setSelectedSection(""); // Reset section when semester changes
-      setSelectedSubject(""); // Reset subject when semester changes
+      setSelectedSection("all"); // Reset section when semester changes
+      setSelectedSubject("all"); // Reset subject when semester changes
     } else {
       setFilteredSections([]);
-      setSelectedSection("");
-      setSelectedSubject("");
+      setSelectedSection("all");
+      setSelectedSubject("all");
     }
   }, [selectedSemester, sections]);
 
   // Filter subjects based on selected section
   useEffect(() => {
-    if (selectedSection) {
+    if (selectedSection && selectedSection !== "all") {
       const subjectsInSection = subjects.filter(subject => subject.section_id === selectedSection);
       setFilteredSubjects(subjectsInSection);
-      setSelectedSubject(""); // Reset subject when section changes
+      setSelectedSubject("all"); // Reset subject when section changes
     } else {
       setFilteredSubjects([]);
-      setSelectedSubject("");
+      setSelectedSubject("all");
     }
   }, [selectedSection, subjects]);
 
@@ -878,15 +877,15 @@ const AdminDashboard = () => {
 
   // Filter faculty based on selected filters
   const getFilteredFacultyData = () => {
-    if (!selectedSemester && !selectedSection && !selectedSubject) {
+    if (selectedSemester === "all" && selectedSection === "all" && selectedSubject === "all") {
       return allFacultyData;
     }
 
     return allFacultyData.filter(faculty => {
       return faculty.faculty_assignments.some((assignment: any) => {
-        const matchesSemester = !selectedSemester || assignment.sections.semester_id === selectedSemester;
-        const matchesSection = !selectedSection || assignment.section_id === selectedSection;
-        const matchesSubject = !selectedSubject || assignment.subject_id === selectedSubject;
+        const matchesSemester = selectedSemester === "all" || assignment.sections.semester_id === selectedSemester;
+        const matchesSection = selectedSection === "all" || assignment.section_id === selectedSection;
+        const matchesSubject = selectedSubject === "all" || assignment.subject_id === selectedSubject;
 
         return matchesSemester && matchesSection && matchesSubject;
       });
@@ -895,7 +894,7 @@ const AdminDashboard = () => {
 
   // Filter faculty ratings based on selected filters
   const getFilteredFacultyRatings = () => {
-    if (!selectedSemester && !selectedSection && !selectedSubject) {
+    if (selectedSemester === "all" && selectedSection === "all" && selectedSubject === "all") {
       return facultyRatings;
     }
 
@@ -905,9 +904,9 @@ const AdminDashboard = () => {
       if (!facultyData) return false;
 
       return facultyData.faculty_assignments.some((assignment: any) => {
-        const matchesSemester = !selectedSemester || assignment.sections.semester_id === selectedSemester;
-        const matchesSection = !selectedSection || assignment.section_id === selectedSection;
-        const matchesSubject = !selectedSubject || assignment.subject_id === selectedSubject;
+        const matchesSemester = selectedSemester === "all" || assignment.sections.semester_id === selectedSemester;
+        const matchesSection = selectedSection === "all" || assignment.section_id === selectedSection;
+        const matchesSubject = selectedSubject === "all" || assignment.subject_id === selectedSubject;
 
         return matchesSemester && matchesSection && matchesSubject;
       });
